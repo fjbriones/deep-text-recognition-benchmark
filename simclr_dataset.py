@@ -13,6 +13,10 @@ from torch.utils.data import Dataset, ConcatDataset, Subset
 from torch._utils import _accumulate
 import torchvision.transforms as transforms
 
+from torch import nn
+
+from image_transforms import ContrastiveLearningViewGenerator, get_simclr_pipeline_transform
+
 
 class Batch_Balanced_Dataset(object):
 
@@ -29,8 +33,8 @@ class Batch_Balanced_Dataset(object):
         print(f'dataset_root: {opt.train_data}\nopt.select_data: {opt.select_data}\nopt.batch_ratio: {opt.batch_ratio}')
         log.write(f'dataset_root: {opt.train_data}\nopt.select_data: {opt.select_data}\nopt.batch_ratio: {opt.batch_ratio}\n')
         assert len(opt.select_data) == len(opt.batch_ratio)
-
-        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+        transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
+        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, transforms=transforms)
         self.data_loader_list = []
         self.dataloader_iter_list = []
         batch_size_list = []
@@ -77,17 +81,18 @@ class Batch_Balanced_Dataset(object):
         print(Total_batch_size_log)
         log.write(Total_batch_size_log + '\n')
         log.close()
+ 
+
 
     def get_batch(self):
+        balanced_batch_images1 = []
+        balanced_batch_images2 = []
         balanced_batch_images = []
         balanced_batch_texts = []
 
         for i, data_loader_iter in enumerate(self.dataloader_iter_list):
             try:
                 image, text = data_loader_iter.next()
-
-                print(type(image))
-
                 balanced_batch_images.append(image)
                 balanced_batch_texts += text
             except StopIteration:
@@ -96,7 +101,12 @@ class Batch_Balanced_Dataset(object):
                 balanced_batch_images.append(image)
                 balanced_batch_texts += text
             except ValueError:
+                print("Passing")
                 pass
+
+        # for bb in balanced_batch_images:
+        #     print(len(bb))
+        #     print(bb[0].shape)
 
         balanced_batch_images = torch.cat(balanced_batch_images, 0)
 
@@ -105,6 +115,7 @@ class Batch_Balanced_Dataset(object):
 
 def hierarchical_dataset(root, opt, select_data='/'):
     """ select_data='/' contains all sub-directory of root directory """
+    
     dataset_list = []
     dataset_log = f'dataset_root:    {root}\t dataset: {select_data[0]}'
     print(dataset_log)
@@ -131,11 +142,12 @@ def hierarchical_dataset(root, opt, select_data='/'):
 
 class LmdbDataset(Dataset):
 
-    def __init__(self, root, opt):
+    def __init__(self, root, opt, transform=None):
 
         self.root = root
         self.opt = opt
         self.env = lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+        self.transform = transform
         if not self.env:
             print('cannot create lmdb from %s' % (root))
             sys.exit(0)
@@ -292,10 +304,11 @@ class NormalizePAD(object):
 
 class AlignCollate(object):
 
-    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False):
+    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, transforms=None):
         self.imgH = imgH
         self.imgW = imgW
         self.keep_ratio_with_pad = keep_ratio_with_pad
+        self.transforms = transforms
 
     def __call__(self, batch):
         batch = filter(lambda x: x is not None, batch)
@@ -319,12 +332,20 @@ class AlignCollate(object):
                 resized_images.append(transform(resized_image))
                 # resized_image.save('./image_test/%d_test.jpg' % w)
 
-            image_tensors = torch.cat([t.unsqueeze(0) for t in resized_images], 0)
-
         else:
             transform = ResizeNormalize((self.imgW, self.imgH))
-            image_tensors = [transform(image) for image in images]
-            image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
+            resized_images = [transform(image) for image in images]
+
+            
+        if self.transforms:
+            image_tensors = [self.transforms(tensor2pil(im)) for im in resized_images]
+
+        image_tensors1 = torch.cat([t[0].unsqueeze(0) for t in image_tensors], 0)
+        image_tensors2 = torch.cat([t[1].unsqueeze(0) for t in image_tensors], 0)
+        image_tensors = torch.cat([image_tensors1, image_tensors2], 0)
+        # print(image_tensors.shape)
+        # print("1", image_tensors1.shape)
+        # print("2", image_tensors2.shape)
 
         return image_tensors, labels
 
@@ -335,6 +356,13 @@ def tensor2im(image_tensor, imtype=np.uint8):
         image_numpy = np.tile(image_numpy, (3, 1, 1))
     image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
     return image_numpy.astype(imtype)
+
+def tensor2pil(image_tensor, imtype=np.uint8):
+    image_numpy = image_tensor.cpu().float().numpy()
+    image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
+    if image_numpy.shape[2] == 1:
+        image_numpy = np.squeeze(image_numpy)
+    return Image.fromarray(image_numpy.astype(imtype))
 
 
 def save_image(image_numpy, image_path):
