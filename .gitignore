@@ -12,6 +12,8 @@
 *.eps
 *.pdf
 
+data_lmdb_release/
+
 ### Linux ###
 *~
 
