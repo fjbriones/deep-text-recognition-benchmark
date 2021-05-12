@@ -17,6 +17,8 @@ from torch import nn
 
 from image_transforms import ContrastiveLearningViewGenerator, get_simclr_pipeline_transform
 
+from imgaug import augmenters as iaa
+
 
 class Batch_Balanced_Dataset(object):
 
@@ -336,13 +338,41 @@ class AlignCollate(object):
             transform = ResizeNormalize((self.imgW, self.imgH))
             resized_images = [transform(image) for image in images]
 
+        seq = iaa.Sequential([iaa.SomeOf((1, 5), 
+                          [iaa.LinearContrast((0.5, 1.0)),
+                          iaa.GaussianBlur((0.5, 1.5)),
+                          iaa.Crop(percent=((0, 0.4),(0, 0),(0, 0.4),(0, 0.0)), keep_size=True),
+                          iaa.Crop(percent=((0, 0.0),(0, 0.02),(0, 0),(0, 0.02)), keep_size=True),
+                          iaa.Sharpen(alpha=(0.0, 0.5), lightness=(0.0, 0.5)),
+                          iaa.PiecewiseAffine(scale=(0.02, 0.03), mode='edge'),
+                          iaa.PerspectiveTransform(scale=(0.01, 0.02))],
+                          random_order=True)])
             
-        if self.transforms:
-            image_tensors = [self.transforms(tensor2pil(im)) for im in resized_images]
 
-        image_tensors1 = torch.cat([t[0].unsqueeze(0) for t in image_tensors], 0)
-        image_tensors2 = torch.cat([t[1].unsqueeze(0) for t in image_tensors], 0)
-        image_tensors = torch.cat([image_tensors1, image_tensors2], 0)
+        im2tensor = transforms.ToTensor()
+        if self.transforms:
+            # image_tensors = [self.transforms(tensor2pil(im)) for im in resized_images]
+
+            transformed_images1 = [seq(image=tensor2im2(image)) for image in resized_images]
+            transformed_images2 = [seq(image=tensor2im2(image)) for image in resized_images]
+
+            transformed_images1.extend(transformed_images2)
+
+            # resized_images = torch.cat(resized_images, 0)
+
+            # print(resized_images.shape)
+
+            # image_tensors1 = transforms.ToTensor()(seq(images=resized_images.cpu().numpy()))
+            # image_tensors2 = transforms.ToTensor()(seq(images=resized_images.cpu().numpy()))
+
+            # print(image_tensors1[0])
+            # print(image_tensors2[0])
+
+            # print(image_tensors1.shape)
+
+        # image_tensors1 = torch.cat([t[0].unsqueeze(0) for t in image_tensors], 0)
+        # image_tensors2 = torch.cat([t[1].unsqueeze(0) for t in image_tensors], 0)
+        image_tensors = torch.cat([im2tensor(image).unsqueeze(0) for image in transformed_images1], 0)
         # print(image_tensors.shape)
         # print("1", image_tensors1.shape)
         # print("2", image_tensors2.shape)
@@ -363,6 +393,12 @@ def tensor2pil(image_tensor, imtype=np.uint8):
     if image_numpy.shape[2] == 1:
         image_numpy = np.squeeze(image_numpy)
     return Image.fromarray(image_numpy.astype(imtype))
+
+def tensor2im2(image_tensor, imtype=np.uint8):
+    image_numpy = image_tensor.cpu().float().numpy()
+
+    image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
+    return image_numpy.astype(imtype)
 
 
 def save_image(image_numpy, image_path):
