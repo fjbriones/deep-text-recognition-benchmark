@@ -79,10 +79,9 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
     return None
 
 
-def validation(model, criterion, evaluation_loader, converter, device, opt):
+def validation(model, criterion, evaluation_loader, converter, device, opt, topk=(1,2,3,4,5)):
     """ validation or evaluation """
-    top1_acc = 0#Averager()
-    top5_acc = 0#Averager()
+    average_accuracies = [Averager() for k in topk]
     total_iters = 0
     infer_time = 0
     valid_loss_avg = Averager()
@@ -162,13 +161,16 @@ def validation(model, criterion, evaluation_loader, converter, device, opt):
         # print(labels.shape)
         # print(batch_size)
 
-        top1, top5 = accuracy(logits, labels, topk=(1, 5))
+        acc = accuracy(logits, labels, topk=topk)
+
+        for i in range(len(acc)):
+            average_accuracies[i].add(acc[i]) 
 
         # print("Top 1:", top1[0])
         # print("Top 5:", top5[0])
 
-        top1_acc += top1[0] * batch_size *26
-        top5_acc += top5[0] * batch_size *26
+        # top1_acc += top1[0] * batch_size *26
+        # top5_acc += top5[0] * batch_size *26
         total_iters += batch_size * 26
 
         # print(top1[0])
@@ -226,7 +228,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt):
     # accuracy = n_correct / float(length_of_data) * 100
     # norm_ED = norm_ED / float(length_of_data)  # ICDAR2019 Normalized Edit Distance
 
-    return valid_loss_avg.val(), top1_acc/total_iters, top5_acc/total_iters, infer_time
+    return valid_loss_avg.val(), [a.val() for a in average_accuracies]
 
 def test(opt):
     """ model configuration """

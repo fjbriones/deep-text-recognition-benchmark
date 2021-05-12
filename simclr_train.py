@@ -117,7 +117,7 @@ def train(opt):
     if opt.adam:
         optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
     else:
-        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
+        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps, weight_decay=opt.weight_decay)
     
     print("Optimizer:")
     print(optimizer)
@@ -189,7 +189,7 @@ def train(opt):
         optimizer.zero_grad()
         model.zero_grad()
         cost.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
 
         # print(cost)
@@ -204,13 +204,13 @@ def train(opt):
 
 
         # validation part
-        if (iteration + 1) % opt.valInterval == 0:# or iteration == 0: # To see training progress, we also conduct validation when 'iteration == 0' 
+        if (iteration + 1) % opt.valInterval == 0 or iteration == 0: # To see training progress, we also conduct validation when 'iteration == 0' 
             elapsed_time = time.time() - start_time
             # for log
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
                 model.eval()
                 with torch.no_grad():
-                    valid_loss, top1_acc, top5_acc, infer_time = validation(
+                    valid_loss, accs = validation(
                         model, criterion, valid_loader, converter, device, opt)
                 model.train()
 
@@ -218,11 +218,14 @@ def train(opt):
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
                 loss_avg.reset()
 
-                current_model_log = f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 5 accuracy":17s}: {top5_acc:0.3f}'
+                current_model_log = f''
+                for i, acc in enumerate(accs):
+                    current_model_log += f'Accuracy Top {i+1}: {acc:0.3f}, ' 
+                #f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 2 accuracy":17s}: {top5_acc:0.3f}'
 
                 # keep best accuracy model (on valid dataset)
-                if top1_acc > best_accuracy:
-                    best_accuracy = top1_acc
+                if accs[0] > best_accuracy:
+                    best_accuracy = accs[0]
                     torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
                 best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}'
 
