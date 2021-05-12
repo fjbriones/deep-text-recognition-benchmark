@@ -237,7 +237,7 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=0.07):
     logits[:,0] = temp
     logits[tuple(labels_access)] = positives.squeeze()
 
-    labels = random_labels.to(device)
+    labels = random_labels.squeeze(0).to(device)
     # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
 
 
