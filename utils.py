@@ -180,9 +180,12 @@ def accuracy(output, target, topk=(1,)):
         batch_size = target.size(0)
 
         vs, pred = output.topk(maxk, 1, True, True)
-        # print(vs)
+        # print(vs.shape)
+        
         pred = pred.t()
+        vs = vs.t()
         # print(pred.shape)
+        print(vs[:2,:10])
         print(pred[:2,:10])
         print(target[:10])
         correct = pred.eq(target.view(1, -1).expand_as(pred))
@@ -218,9 +221,6 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=0.07):
 
     # select and combine multiple positives
     positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
-
-    # print(positives.shape)
-
     # select only the negatives the negatives
     negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
 
@@ -229,51 +229,18 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=0.07):
     random_labels = torch.randint(low=0, high=logits.shape[1], size=(logits.shape[0],1)).to(device)
     index = torch.arange(logits.shape[0]).to(device).unsqueeze(1)
 
-    # print(index.shape)
-
     labels_access = torch.cat([index, random_labels], 1)
     labels_access = torch.transpose(labels_access, 0, 1)
-
-    # print(labels_access.shape)
 
     temp = logits[tuple(labels_access)]
 
     logits[:,0] = temp
     logits[tuple(labels_access)] = positives.squeeze()
 
-    # print(positives.squeeze())
-    # print(logits[:,0])
-    # print(temp)
-    # print(temp)
-    # print(temp.shape)
-
-
-
-    # temp = torch.gather(logits, 1, random_labels)
-    # print(temp.shape)
-    # print(logits[0,random_labels[0]])
-    # print(logits[2,random_labels[2]])
-    
-
-    # access_array = torch.cat([index, random_labels], 1)
-    # print(access_array.shape)
-    # temp = 
-
-    # displace = []
-    # i = 0
-    # for l in random_labels:
-    #     temp = logits[i,l]
-    #     # print(temp)
-    #     logits[i,l] = positives[i]
-    #     logits[i,0] = temp
-    #     i += 1
-
-    # print(logits.shape)
-
+    labels = random_labels,to(device)
     # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
 
-    # print(labels.shape)
 
     logits = logits / temperature
-    return logits, random_labels.squeeze()
+    return logits, labels
 

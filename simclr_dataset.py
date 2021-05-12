@@ -373,6 +373,8 @@ class AlignCollate(object):
         # image_tensors1 = torch.cat([t[0].unsqueeze(0) for t in image_tensors], 0)
         # image_tensors2 = torch.cat([t[1].unsqueeze(0) for t in image_tensors], 0)
         image_tensors = torch.cat([im2tensor(image).unsqueeze(0) for image in transformed_images1], 0)
+        image_tensors.sub_(0.5).div_(0.5)
+
         # print(image_tensors.shape)
         # print("1", image_tensors1.shape)
         # print("2", image_tensors2.shape)

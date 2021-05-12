@@ -172,6 +172,9 @@ def train(opt):
         #     preds = model(image, text[:, :-1])  # align with Attention.forward
         #     target = text[:, 1:]  # without [GO] Symbol
         #     cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
+        # optimizer.zero_grad()
+        model.zero_grad(set_to_none=True)
+
 
         features = model(image)
 
@@ -180,14 +183,9 @@ def train(opt):
         logits, labels = info_nce_loss(features, batch_size, device)
         cost = criterion(logits, labels)
 
-        
-
         # print(logits.shape)
         # print(labels.shape)
         
-
-        optimizer.zero_grad()
-        model.zero_grad()
         cost.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
