@@ -215,16 +215,61 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=0.07):
     # select and combine multiple positives
     positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
 
-    # print(positives)
+    # print(positives.shape)
 
     # select only the negatives the negatives
     negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
 
-    # print(negatives.shape)
-
     logits = torch.cat([positives, negatives], dim=1)
-    labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
+
+    random_labels = torch.randint(low=0, high=logits.shape[1], size=(logits.shape[0],1)).to(device)
+    index = torch.arange(logits.shape[0]).to(device).unsqueeze(1)
+
+    # print(index.shape)
+
+    labels_access = torch.cat([index, random_labels], 1)
+    labels_access = torch.transpose(labels_access, 0, 1)
+
+    # print(labels_access.shape)
+
+    temp = logits[tuple(labels_access)]
+
+    logits[:,0] = temp
+    logits[tuple(labels_access)] = positives.squeeze()
+
+    # print(positives.squeeze())
+    # print(logits[:,0])
+    # print(temp)
+    # print(temp)
+    # print(temp.shape)
+
+
+
+    # temp = torch.gather(logits, 1, random_labels)
+    # print(temp.shape)
+    # print(logits[0,random_labels[0]])
+    # print(logits[2,random_labels[2]])
+    
+
+    # access_array = torch.cat([index, random_labels], 1)
+    # print(access_array.shape)
+    # temp = 
+
+    # displace = []
+    # i = 0
+    # for l in random_labels:
+    #     temp = logits[i,l]
+    #     # print(temp)
+    #     logits[i,l] = positives[i]
+    #     logits[i,0] = temp
+    #     i += 1
+
+    # print(logits.shape)
+
+    # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
+
+    # print(labels.shape)
 
     logits = logits / temperature
-    return logits, labels
+    return logits, random_labels.squeeze()
 
