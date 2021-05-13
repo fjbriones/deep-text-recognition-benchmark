@@ -22,6 +22,13 @@ from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtract
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
 
+class Head(nn.Module):
+    def __init__(self, opt):
+        super(Head, self).__init__()
+        self.linear = nn.Linear(opt.final_layer, opt.num_class)
+    def forward(self, x):
+        x = self.linear(x)
+        return x
 
 class FeaturesModel(nn.Module):
 

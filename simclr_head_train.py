@@ -12,14 +12,12 @@ import torch.optim as optim
 import torch.utils.data
 import numpy as np
 
-from utils import CTCLabelConverter, CTCLabelConverterForBaiduWarpctc, AttnLabelConverter, Averager, info_nce_loss, accuracy
-from simclr_dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
+from utils import CTCLabelConverter, CTCLabelConverterForBaiduWarpctc, AttnLabelConverter, Averager
+from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from simclr_model import FeaturesModel as Model
-from simclr_test import validation
+from simclr_model import Head
+from simclr_test import head_validation as validation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-from image_transforms import ContrastiveLearningViewGenerator, get_simclr_pipeline_transform
 
 
 def train(opt):
@@ -34,8 +32,7 @@ def train(opt):
     train_dataset = Batch_Balanced_Dataset(opt)
 
     log = open(f'./saved_models/{opt.exp_name}/log_dataset.txt', 'a')
-    transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
-    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, transforms=transforms)
+    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
     valid_dataset, valid_dataset_log = hierarchical_dataset(root=opt.valid_data, opt=opt)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=opt.batch_size,
@@ -65,19 +62,19 @@ def train(opt):
           opt.SequenceModeling, opt.Prediction)
 
     # weight initialization
-    for name, param in model.named_parameters():
-        if 'localization_fc2' in name:
-            print(f'Skip {name} as it is already initialized')
-            continue
-        try:
-            if 'bias' in name:
-                init.constant_(param, 0.0)
-            elif 'weight' in name:
-                init.kaiming_normal_(param)
-        except Exception as e:  # for batchnorm.
-            if 'weight' in name:
-                param.data.fill_(1)
-            continue
+    # for name, param in model.named_parameters():
+    #     if 'localization_fc2' in name:
+    #         print(f'Skip {name} as it is already initialized')
+    #         continue
+    #     try:
+    #         if 'bias' in name:
+    #             init.constant_(param, 0.0)
+    #         elif 'weight' in name:
+    #             init.kaiming_normal_(param)
+    #     except Exception as e:  # for batchnorm.
+    #         if 'weight' in name:
+    #             param.data.fill_(1)
+    #         continue
 
     # data parallel for multi-GPU
     model = torch.nn.DataParallel(model).to(device)
@@ -91,40 +88,42 @@ def train(opt):
     print("Model:")
     print(model)
 
+    for param in model.parameters():
+        param.requires_grad = False
+
     """ setup loss """
     # if 'CTC' in opt.Prediction:
-    #     if opt.baiduCTC:
-    #         # need to install warpctc. see our guideline.
-    #         from warpctc_pytorch import CTCLoss 
-    #         criterion = CTCLoss()
-    #     else:
-    #         criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
+    if opt.baiduCTC:
+        # need to install warpctc. see our guideline.
+        from warpctc_pytorch import CTCLoss 
+        criterion = CTCLoss()
+    else:
+        criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
     # else:
-    criterion = torch.nn.CrossEntropyLoss().to(device)  # ignore [GO] token = ignore index 0
+    # criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
     # loss averager
     loss_avg = Averager()
 
     # filter that only require gradient decent
-    filtered_parameters = []
-    params_num = []
-    for p in filter(lambda p: p.requires_grad, model.parameters()):
-        filtered_parameters.append(p)
-        params_num.append(np.prod(p.size()))
-    print('Trainable params num : ', sum(params_num))
+    # filtered_parameters = []
+    # params_num = []
+    # for p in filter(lambda p: p.requires_grad, model.parameters()):
+    #     filtered_parameters.append(p)
+    #     params_num.append(np.prod(p.size()))
+    # print('Trainable params num : ', sum(params_num))
     # [print(name, p.numel()) for name, p in filter(lambda p: p[1].requires_grad, model.named_parameters())]
+
+    # model.eval()
+    simclr_head = Head(opt)
+    simclr_head = simclr_head.to(device)
 
     # setup optimizer
     if opt.adam:
-        optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
+        optimizer = optim.Adam(simclr_head.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
     else:
-        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps, weight_decay=opt.weight_decay)
-    
+        optimizer = optim.Adadelta(simclr_head.parameters(), lr=opt.lr, rho=opt.rho, eps=opt.eps)
     print("Optimizer:")
     print(optimizer)
-
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(opt.num_iter/5e4), eta_min=0, last_epoch=-1,verbose=True)
-
-
 
     """ final options """
     # print(opt)
@@ -139,67 +138,52 @@ def train(opt):
 
     """ start training """
     start_iter = 0
-    if opt.saved_model != '':
-        try:
-            start_iter = int(opt.saved_model.split('_')[-1].split('.')[0])
-            print(f'continue to train, start_iter: {start_iter}')
-        except:
-            pass
+    # if opt.saved_model != '':
+    #     try:
+    #         start_iter = int(opt.saved_model.split('_')[-1].split('.')[0])
+    #         print(f'continue to train, start_iter: {start_iter}')
+    #     except:
+    #         pass
 
     start_time = time.time()
     best_accuracy = -1
+    best_norm_ED = -1
     iteration = start_iter
+
+
 
     while(True):
         # train part
         image_tensors, labels = train_dataset.get_batch()
-        # image_tensors = torch.cat(image_tensors, dim=0)
         image = image_tensors.to(device)
-        # text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
+        text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
 
         # if 'CTC' in opt.Prediction:
-        #     preds = model(image, text)
-        #     preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-        #     if opt.baiduCTC:
-        #         preds = preds.permute(1, 0, 2)  # to use CTCLoss format
-        #         cost = criterion(preds, text, preds_size, length) / batch_size
-        #     else:
-        #         preds = preds.log_softmax(2).permute(1, 0, 2)
-        #         cost = criterion(preds, text, preds_size, length)
+        feature = model(image)
+        # print(feature.shape)
+        preds = simclr_head(feature.view(-1, 26, feature.shape[1]))
+        preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+        if opt.baiduCTC:
+            preds = preds.permute(1, 0, 2)  # to use CTCLoss format
+            cost = criterion(preds, text, preds_size, length) / batch_size
+        else:
+            preds = preds.log_softmax(2).permute(1, 0, 2)
+            cost = criterion(preds, text, preds_size, length)
 
         # else:
-        #     preds = model(image, text[:, :-1])  # align with Attention.forward
-        #     target = text[:, 1:]  # without [GO] Symbol
-        #     cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
-        # optimizer.zero_grad()
-        model.zero_grad(set_to_none=True)
+        # feature = model(image)  # align with Attention.forward
+        # preds = head(feature.view(-1, 26, feature.shape[1]))
+        # print(preds.shape)
+        # target = text[:, 1:]  # without [GO] Symbol
+        # cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
-
-        features = model(image)
-
-        # print(features.shape)
-
-        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature)
-        cost = criterion(logits, labels)
-
-        # print(logits.shape)
-        # print(labels.shape)
-        
+        optimizer.zero_grad()
         cost.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
+        torch.nn.utils.clip_grad_norm_(simclr_head.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
 
-        # print(cost)
-
         loss_avg.add(cost)
-
-        # top1, top5 = accuracy(logits, labels, topk=(1, 5))
-        # print("Top 1 acc:", top1[0])
-        # print("Top 5 acc:", top5[0])
-
-        
-
 
         # validation part
         if (iteration + 1) % opt.valInterval == 0 or iteration == 0: # To see training progress, we also conduct validation when 'iteration == 0' 
@@ -207,34 +191,50 @@ def train(opt):
             # for log
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
                 model.eval()
+                simclr_head.eval()
                 with torch.no_grad():
-                    valid_loss, accs = validation(
-                        model, criterion, valid_loader, converter, device, opt)
+                    valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
+                        model, simclr_head, criterion, valid_loader, converter, opt)
+                simclr_head.train()
                 model.train()
 
                 # training loss and validation loss
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
                 loss_avg.reset()
 
-                current_model_log = f''
-                for i, acc in enumerate(accs):
-                    current_model_log += f'Accuracy Top {i+1}: {acc:0.3f}, ' 
-                #f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 2 accuracy":17s}: {top5_acc:0.3f}'
+                current_model_log = f'{"Current_accuracy":17s}: {current_accuracy:0.3f}, {"Current_norm_ED":17s}: {current_norm_ED:0.2f}'
 
                 # keep best accuracy model (on valid dataset)
-                if accs[0] > best_accuracy:
-                    best_accuracy = accs[0]
+                if current_accuracy > best_accuracy:
+                    best_accuracy = current_accuracy
                     torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
-                best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}'
+                if current_norm_ED > best_norm_ED:
+                    best_norm_ED = current_norm_ED
+                    torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_norm_ED.pth')
+                best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}, {"Best_norm_ED":17s}: {best_norm_ED:0.2f}'
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
                 print(loss_model_log)
                 log.write(loss_model_log + '\n')
 
+                # show some predicted results
+                dashed_line = '-' * 80
+                head = f'{"Ground Truth":25s} | {"Prediction":25s} | Confidence Score & T/F'
+                predicted_result_log = f'{dashed_line}\n{head}\n{dashed_line}\n'
+                for gt, pred, confidence in zip(labels[:5], preds[:5], confidence_score[:5]):
+                    if 'Attn' in opt.Prediction:
+                        gt = gt[:gt.find('[s]')]
+                        pred = pred[:pred.find('[s]')]
+
+                    predicted_result_log += f'{gt:25s} | {pred:25s} | {confidence:0.4f}\t{str(pred == gt)}\n'
+                predicted_result_log += f'{dashed_line}'
+                print(predicted_result_log)
+                log.write(predicted_result_log + '\n')
+
         # save model per 1e+5 iter.
         if (iteration + 1) % 1e+4 == 0:
-            torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
-            # scheduler.step()
+            torch.save(
+                head.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
 
         if (iteration + 1) == opt.num_iter:
             print('end the training')
@@ -248,10 +248,10 @@ if __name__ == '__main__':
     parser.add_argument('--train_data', required=True, help='path to training dataset')
     parser.add_argument('--valid_data', required=True, help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=1111, help='for random seed setting')
-    parser.add_argument('--workers', type=int, help='number of data loading workers', default=6)
-    parser.add_argument('--batch_size', type=int, default=32, help='input batch size')
+    parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
+    parser.add_argument('--batch_size', type=int, default=4, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
-    parser.add_argument('--valInterval', type=int, default=1000, help='Interval between each validation')
+    parser.add_argument('--valInterval', type=int, default=2000, help='Interval between each validation')
     parser.add_argument('--saved_model', default='', help="path to model to continue training")
     parser.add_argument('--FT', action='store_true', help='whether to do fine-tuning')
     parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is Adadelta)')
@@ -296,7 +296,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     if not opt.exp_name:
-        opt.exp_name = f'{opt.Transformation}-{opt.FeatureExtraction}-{opt.SequenceModeling}-SimCLR'
+        opt.exp_name = f'{opt.Transformation}-{opt.FeatureExtraction}-{opt.SequenceModeling}-SIMCLRHead'
         opt.exp_name += f'-Seed{opt.manualSeed}'
         # print(opt.exp_name)
 

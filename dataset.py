@@ -86,7 +86,7 @@ class Batch_Balanced_Dataset(object):
             try:
                 image, text = data_loader_iter.next()
 
-                print(type(image))
+                # print(type(image))
 
                 balanced_batch_images.append(image)
                 balanced_batch_texts += text
