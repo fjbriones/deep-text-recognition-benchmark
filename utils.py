@@ -196,7 +196,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
-def info_nce_loss(features, batch_size, device, n_views=2, temperature=0.07):
+def info_nce_loss(features, batch_size, device, n_views=2, temperature=1):
 
     labels = torch.cat([torch.arange(batch_size*13) for i in range(n_views)], dim=0)
     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()

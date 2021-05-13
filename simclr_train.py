@@ -290,6 +290,7 @@ if __name__ == '__main__':
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
+    parser.add_argument('--final_layer', type=int, default=128, help='final layer hidden state')
 
     opt = parser.parse_args()
 

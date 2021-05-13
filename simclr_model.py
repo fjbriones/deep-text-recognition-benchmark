@@ -60,13 +60,15 @@ class FeaturesModel(nn.Module):
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
 
+        self.final_layer = nn.Linear(self.SequenceModeling_output, opt.final_layer)
+
         """ Prediction """
-        if opt.Prediction == 'CTC':
-            self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
-        elif opt.Prediction == 'Attn':
-            self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
-        else:
-            raise Exception('Prediction is neither CTC or Attn')
+        # if opt.Prediction == 'CTC':
+        #     self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
+        # elif opt.Prediction == 'Attn':
+        #     self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
+        # else:
+        #     raise Exception('Prediction is neither CTC or Attn')
 
     def forward(self, input, is_train=True):
         """ Transformation stage """
@@ -84,9 +86,12 @@ class FeaturesModel(nn.Module):
         else:
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
+
+        final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
         # print(contextual_feature.shape)
         # print(contextual_feature.shape)
-        contextual_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+        # contextual_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+        # final_feature = final_feature.view(-1, final_feature.shape[2])
         # print(contextual_feature.shape)
         
-        return contextual_feature
+        return final_feature
