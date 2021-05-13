@@ -234,7 +234,7 @@ def train(opt):
         # save model per 1e+5 iter.
         if (iteration + 1) % 1e+4 == 0:
             torch.save(
-                head.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
+                simclr_head.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
 
         if (iteration + 1) == opt.num_iter:
             print('end the training')
