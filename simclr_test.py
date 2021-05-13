@@ -113,7 +113,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
         start_time = time.time()
         features = model(image)
         forward_time = time.time() - start_time
-        logits, labels = info_nce_loss(features, batch_size, device)
+        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature)
         # print(features.shape
 
         cost = criterion(logits, labels)
