@@ -125,6 +125,8 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
             # plt.show()
             plt.savefig('sample_images.png')
 
+            plt.close('all')
+
 
         image = image_tensors.to(device)
         # image = image.to(device)
