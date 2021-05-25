@@ -18,7 +18,9 @@ from torch import nn
 from image_transforms import ContrastiveLearningViewGenerator, get_simclr_pipeline_transform
 
 from imgaug import augmenters as iaa
+import imgaug as ia
 
+import matplotlib.pyplot as plt
 
 class Batch_Balanced_Dataset(object):
 
@@ -35,8 +37,21 @@ class Batch_Balanced_Dataset(object):
         print(f'dataset_root: {opt.train_data}\nopt.select_data: {opt.select_data}\nopt.batch_ratio: {opt.batch_ratio}')
         log.write(f'dataset_root: {opt.train_data}\nopt.select_data: {opt.select_data}\nopt.batch_ratio: {opt.batch_ratio}\n')
         assert len(opt.select_data) == len(opt.batch_ratio)
-        transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
-        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, transforms=transforms)
+        # transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
+
+        ia.seed(1)
+        image_transforms = iaa.Sequential([iaa.SomeOf((1, 5), 
+                          [iaa.LinearContrast((0.5, 1.0)),
+                          iaa.GaussianBlur((0.5, 1.5)),
+                          iaa.Crop(percent=((0, 0.4),(0, 0),(0, 0.4),(0, 0.0)), keep_size=True),
+                          iaa.Crop(percent=((0, 0.0),(0, 0.02),(0, 0),(0, 0.02)), keep_size=True),
+                          iaa.Sharpen(alpha=(0.0, 0.5), lightness=(0.0, 0.5)),
+                          iaa.PiecewiseAffine(scale=(0.02, 0.03), mode='edge'),
+                          iaa.PerspectiveTransform(scale=(0.01, 0.02))],
+                          random_order=True)])
+
+
+        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, image_transforms=image_transforms)
         self.data_loader_list = []
         self.dataloader_iter_list = []
         batch_size_list = []
@@ -306,11 +321,11 @@ class NormalizePAD(object):
 
 class AlignCollate(object):
 
-    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, transforms=None):
+    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, image_transforms=None):
         self.imgH = imgH
         self.imgW = imgW
         self.keep_ratio_with_pad = keep_ratio_with_pad
-        self.transforms = transforms
+        self.image_transforms = image_transforms
 
     def __call__(self, batch):
         batch = filter(lambda x: x is not None, batch)
@@ -338,23 +353,15 @@ class AlignCollate(object):
             transform = ResizeNormalize((self.imgW, self.imgH))
             resized_images = [transform(image) for image in images]
 
-        seq = iaa.Sequential([iaa.SomeOf((1, 5), 
-                          [iaa.LinearContrast((0.5, 1.0)),
-                          iaa.GaussianBlur((0.5, 1.5)),
-                          iaa.Crop(percent=((0, 0.4),(0, 0),(0, 0.4),(0, 0.0)), keep_size=True),
-                          iaa.Crop(percent=((0, 0.0),(0, 0.02),(0, 0),(0, 0.02)), keep_size=True),
-                          iaa.Sharpen(alpha=(0.0, 0.5), lightness=(0.0, 0.5)),
-                          iaa.PiecewiseAffine(scale=(0.02, 0.03), mode='edge'),
-                          iaa.PerspectiveTransform(scale=(0.01, 0.02))],
-                          random_order=True)])
+        
             
 
         im2tensor = transforms.ToTensor()
-        if self.transforms:
+        if self.image_transforms:
             # image_tensors = [self.transforms(tensor2pil(im)) for im in resized_images]
 
-            transformed_images1 = [seq(image=tensor2im2(image)) for image in resized_images]
-            transformed_images2 = [seq(image=tensor2im2(image)) for image in resized_images]
+            transformed_images1 = [self.image_transforms(image=tensor2im2(image)) for image in resized_images]
+            transformed_images2 = [self.image_transforms(image=tensor2im2(image)) for image in resized_images]
 
             transformed_images1.extend(transformed_images2)
 
@@ -369,6 +376,21 @@ class AlignCollate(object):
             # print(image_tensors2[0])
 
             # print(image_tensors1.shape)
+
+        # for image in transformed_images1:
+        #     plt.imshow(image)
+        #     break
+
+        # plt.subplot(1,4,1)
+        # plt.imshow(tensor2im2(resized_images[0]))
+        # plt.subplot(1,4,2)
+        # plt.imshow(transformed_images1[0])
+        # plt.subplot(1,4,3)
+        # plt.imshow(transformed_images2[0])
+        # plt.subplot(1,4,4)
+        # plt.imshow(transformed_images1[int(len(transformed_images1)/2)])
+
+        # plt.show()
 
         # image_tensors1 = torch.cat([t[0].unsqueeze(0) for t in image_tensors], 0)
         # image_tensors2 = torch.cat([t[1].unsqueeze(0) for t in image_tensors], 0)

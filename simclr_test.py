@@ -15,6 +15,9 @@ from utils import CTCLabelConverter, AttnLabelConverter, Averager, info_nce_loss
 from image_transforms import get_simclr_pipeline_transform
 from dataset import hierarchical_dataset, AlignCollate
 from model import Model
+
+import matplotlib.pyplot as plt
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -97,8 +100,34 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
 
         # image = torch.cat((image1, image2), 0)
         # image_tensors = torch.cat(image_tensors, dim=0)
+
+        
+
+        if i % 100 == 0:
+            show_images = ((np.squeeze(image_tensors.cpu().numpy())+1.)/2. * 255.).astype(np.uint8)
+            fig, ax = plt.subplots(4,2)
+            # plt.subplot(4,2,1)
+            ax[0,0].imshow(show_images[0], cmap='gray')
+            # plt.subplot(4,2,2)
+            ax[0,1].imshow(show_images[int(show_images.shape[0]/2)], cmap='gray')
+            # plt.subplot(4,2,3)
+            ax[1,0].imshow(show_images[1], cmap='gray')
+            # plt.subplot(4,2,4)
+            ax[1,1].imshow(show_images[int(show_images.shape[0]/2 + 1)], cmap='gray')
+            # plt.subplot(4,2,5)
+            ax[2,0].imshow(show_images[2], cmap='gray')
+            # plt.subplot(4,2,6)
+            ax[2,1].imshow(show_images[int(show_images.shape[0]/2 + 2)], cmap='gray')
+            # plt.subplot(4,2,7)
+            ax[3,0].imshow(show_images[3], cmap='gray')
+            # plt.subplot(4,2,8)
+            ax[3,1].imshow(show_images[int(show_images.shape[0]/2 + 3)], cmap='gray')
+            # plt.show()
+            plt.savefig('sample_images.png')
+
+
         image = image_tensors.to(device)
-        image = image.to(device)
+        # image = image.to(device)
         batch_size = image.size(0)
         # print(batch_size)
 
@@ -109,10 +138,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
         # text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
 
         # text_for_loss, length_for_loss = converter.encode(labels, batch_max_length=opt.batch_max_length)
-
-        start_time = time.time()
         features = model(image)
-        forward_time = time.time() - start_time
         logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature)
         # print(features.shape
 
@@ -154,7 +180,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
         #     preds_str = converter.decode(preds_index, length_for_pred)
         #     labels = converter.decode(text_for_loss[:, 1:], length_for_loss)
 
-        infer_time += forward_time
+        # infer_time += forward_time
         valid_loss_avg.add(cost)
 
         # print(logits.shape)
@@ -162,7 +188,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
         # print(batch_size)
 
         acc = accuracy(logits, labels, topk=topk)
-
+        # print(acc[0])
         for i in range(len(acc)):
             average_accuracies[i].add(acc[i]) 
 
@@ -171,7 +197,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
 
         # top1_acc += top1[0] * batch_size *26
         # top5_acc += top5[0] * batch_size *26
-        total_iters += batch_size * 26
+        # total_iters += batch_size * 26
 
         # print(top1[0])
         # print(top5[0])

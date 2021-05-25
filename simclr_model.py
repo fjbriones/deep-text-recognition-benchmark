@@ -25,7 +25,7 @@ from modules.prediction import Attention
 class Head(nn.Module):
     def __init__(self, opt):
         super(Head, self).__init__()
-        self.linear = nn.Linear(opt.final_layer, opt.num_class)
+        self.linear = nn.Linear(256, opt.num_class)
     def forward(self, x):
         x = self.linear(x)
         return x
@@ -94,10 +94,10 @@ class FeaturesModel(nn.Module):
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
 
-        final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
+        # final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
         # print(contextual_feature.shape)
         # print(contextual_feature.shape)
-        # contextual_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+        final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         # final_feature = final_feature.view(-1, final_feature.shape[2])
         # print(contextual_feature.shape)
         

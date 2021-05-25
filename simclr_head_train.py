@@ -155,13 +155,15 @@ def train(opt):
     while(True):
         # train part
         image_tensors, labels = train_dataset.get_batch()
+        print(image_tensors.shape)
+        print(image_tensors[0])
+
         image = image_tensors.to(device)
         text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
 
         # if 'CTC' in opt.Prediction:
         feature = model(image)
-        # print(feature.shape)
         preds = simclr_head(feature.view(-1, 26, feature.shape[1]))
         preds_size = torch.IntTensor([preds.size(1)] * batch_size)
         if opt.baiduCTC:

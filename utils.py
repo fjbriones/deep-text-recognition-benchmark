@@ -185,9 +185,9 @@ def accuracy(output, target, topk=(1,)):
         pred = pred.t()
         vs = vs.t()
         # print(pred.shape)
-        print(vs[:2,:10])
-        print(pred[:2,:10])
-        print(target[:10])
+        # print(vs[:2,:10])
+        # print(pred[:2,:10])
+        # print(target[:10])
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
         res = []
@@ -198,7 +198,16 @@ def accuracy(output, target, topk=(1,)):
 
 def info_nce_loss(features, batch_size, device, n_views=2, temperature=1):
 
-    labels = torch.cat([torch.arange(batch_size*13) for i in range(n_views)], dim=0)
+    num_of_features = 3
+    # print(features.shape)
+    batch_features = features.view(batch_size,-1,features.shape[1])
+    limit_features_first = batch_features[:,:num_of_features*2-1,:]
+    limit_features_last = batch_features[:,-1:,:]
+    limit_features = torch.cat([limit_features_first, limit_features_last], dim=1)
+    # limit_features = F.normalize(limit_features, dim=1)
+    features = limit_features.view(-1, limit_features.shape[2])
+
+    labels = torch.cat([torch.arange(batch_size*num_of_features) for i in range(n_views)], dim=0)
     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
     labels = labels.to(device)
 
@@ -225,6 +234,7 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=1):
     negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
 
     logits = torch.cat([positives, negatives], dim=1)
+    # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
 
     random_labels = torch.randint(low=0, high=logits.shape[1], size=(logits.shape[0],1)).to(device)
     index = torch.arange(logits.shape[0]).to(device).unsqueeze(1)
@@ -238,8 +248,6 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=1):
     logits[tuple(labels_access)] = positives.squeeze()
 
     labels = random_labels.squeeze().to(device)
-    # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
-
 
     logits = logits / temperature
     return logits, labels

@@ -16,6 +16,9 @@ from utils import CTCLabelConverter, CTCLabelConverterForBaiduWarpctc, AttnLabel
 from simclr_dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from simclr_model import FeaturesModel as Model
 from simclr_test import validation
+from imgaug import augmenters as iaa
+import imgaug as ia
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -34,8 +37,20 @@ def train(opt):
     train_dataset = Batch_Balanced_Dataset(opt)
 
     log = open(f'./saved_models/{opt.exp_name}/log_dataset.txt', 'a')
-    transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
-    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, transforms=transforms)
+    # transforms = ContrastiveLearningViewGenerator(get_simclr_pipeline_transform((32,100)),2)
+
+    ia.seed(1)
+    image_transforms = iaa.Sequential([iaa.SomeOf((1, 5), 
+                          [iaa.LinearContrast((0.5, 1.0)),
+                          iaa.GaussianBlur((0.5, 1.5)),
+                          iaa.Crop(percent=((0, 0.4),(0, 0),(0, 0.4),(0, 0.0)), keep_size=True),
+                          iaa.Crop(percent=((0, 0.0),(0, 0.02),(0, 0),(0, 0.02)), keep_size=True),
+                          iaa.Sharpen(alpha=(0.0, 0.5), lightness=(0.0, 0.5)),
+                          iaa.PiecewiseAffine(scale=(0.02, 0.03), mode='edge'),
+                          iaa.PerspectiveTransform(scale=(0.01, 0.02))],
+                          random_order=True)])
+
+    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, image_transforms=image_transforms)
     valid_dataset, valid_dataset_log = hierarchical_dataset(root=opt.valid_data, opt=opt)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=opt.batch_size,
@@ -103,6 +118,8 @@ def train(opt):
     criterion = torch.nn.CrossEntropyLoss().to(device)  # ignore [GO] token = ignore index 0
     # loss averager
     loss_avg = Averager()
+    topk = [1,2,3,4,5]
+    accs_avg = [Averager() for i in topk]
 
     # filter that only require gradient decent
     filtered_parameters = []
@@ -153,6 +170,9 @@ def train(opt):
     while(True):
         # train part
         image_tensors, labels = train_dataset.get_batch()
+        # print(image_tensors.shape)
+        # print(image_tensors[0])
+
         # image_tensors = torch.cat(image_tensors, dim=0)
         image = image_tensors.to(device)
         # text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
@@ -194,6 +214,11 @@ def train(opt):
 
         loss_avg.add(cost)
 
+        train_accuracy = accuracy(logits, labels, topk=topk)
+
+        for i in range(len(train_accuracy)):
+            accs_avg[i].add(train_accuracy[i])
+
         # top1, top5 = accuracy(logits, labels, topk=(1, 5))
         # print("Top 1 acc:", top1[0])
         # print("Top 5 acc:", top5[0])
@@ -216,16 +241,26 @@ def train(opt):
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
                 loss_avg.reset()
 
-                current_model_log = f''
+                current_model_log = f'Train:\n'
+                for i, acc in enumerate(accs_avg):
+                    current_model_log += f'Accuracy Top {i+1}: {acc.val():0.3f}, ' 
+
+                current_model_log += f'\nTest:\n'
                 for i, acc in enumerate(accs):
-                    current_model_log += f'Accuracy Top {i+1}: {acc:0.3f}, ' 
+                    current_model_log += f'Accuracy Top {i+1}: {acc:0.3f}, '
+
+                
+                
                 #f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 2 accuracy":17s}: {top5_acc:0.3f}'
 
                 # keep best accuracy model (on valid dataset)
-                if accs[0] > best_accuracy:
-                    best_accuracy = accs[0]
+                if accs_avg[0].val() > best_accuracy:
+                    best_accuracy = accs_avg[0].val()
                     torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
                 best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}'
+
+                for acc in accs_avg:
+                    acc.reset()
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
                 print(loss_model_log)
