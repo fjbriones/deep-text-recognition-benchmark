@@ -141,7 +141,7 @@ def validation(model, criterion, evaluation_loader, converter, device, iteration
 
         # text_for_loss, length_for_loss = converter.encode(labels, batch_max_length=opt.batch_max_length)
         features = model(image)
-        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature)
+        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
         # print(features.shape
 
         cost = criterion(logits, labels)
@@ -280,7 +280,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         start_time = time.time()
         if 'CTC' in opt.Prediction:
             feature = model(image, is_train=False)
-            preds = head(feature.view(-1, 26, feature.shape[1]))
+            preds = head(feature.view(-1, 26, feature.shape[1]), text_for_pred)
             forward_time = time.time() - start_time
 
             # Calculate evaluation loss for CTC deocder.
@@ -301,7 +301,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         
         else:
             feature = model(image, is_train=False)
-            preds = head(feature.view(-1, 26, feature.shape[1]))
+            preds = head(feature.view(-1, 26, feature.shape[1]), text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
             preds = preds[:, :text_for_loss.shape[1] - 1, :]

@@ -202,7 +202,7 @@ def train(opt):
 
         # print(features.shape)
 
-        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature)
+        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
         cost = criterion(logits, labels)
 
         # print(logits.shape)
@@ -352,6 +352,7 @@ if __name__ == '__main__':
     parser.add_argument('--final_layer', type=int, default=128, help='final layer hidden state')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--image_directories', type=str, default="images", help="directory for images")
+    parser.add_argument('--num_of_features', type=int, default=13, help="Limiting calculations on info_nce_loss to this number of features")
 
     opt = parser.parse_args()
 

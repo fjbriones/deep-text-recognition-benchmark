@@ -78,7 +78,7 @@ def train(opt):
 
     # data parallel for multi-GPU
     model = torch.nn.DataParallel(model).to(device)
-    model.train()
+    model.eval()
     if opt.saved_model != '':
         print(f'loading pretrained model from {opt.saved_model}')
         if opt.FT:
@@ -92,15 +92,15 @@ def train(opt):
         param.requires_grad = False
 
     """ setup loss """
-    # if 'CTC' in opt.Prediction:
-    if opt.baiduCTC:
-        # need to install warpctc. see our guideline.
-        from warpctc_pytorch import CTCLoss 
-        criterion = CTCLoss()
+    if 'CTC' in opt.Prediction:
+        if opt.baiduCTC:
+            # need to install warpctc. see our guideline.
+            from warpctc_pytorch import CTCLoss 
+            criterion = CTCLoss()
+        else:
+            criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
     else:
-        criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
-    # else:
-    # criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
+        criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
     # loss averager
     loss_avg = Averager()
 
@@ -116,12 +116,21 @@ def train(opt):
     # model.eval()
     simclr_head = Head(opt)
     simclr_head = simclr_head.to(device)
+    simclr_head.train()
+
+
+    filtered_parameters = []
+    params_num = []
+    for p in filter(lambda p: p.requires_grad, simclr_head.parameters()):
+        filtered_parameters.append(p)
+        params_num.append(np.prod(p.size()))
+    print('Trainable params num : ', sum(params_num))
 
     # setup optimizer
     if opt.adam:
-        optimizer = optim.Adam(simclr_head.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+        optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
     else:
-        optimizer = optim.Adadelta(simclr_head.parameters(), lr=opt.lr, rho=opt.rho, eps=opt.eps)
+        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
     print("Optimizer:")
     print(optimizer)
 
@@ -150,35 +159,29 @@ def train(opt):
     best_norm_ED = -1
     iteration = start_iter
 
-
-
     while(True):
         # train part
         image_tensors, labels = train_dataset.get_batch()
-        print(image_tensors.shape)
-        print(image_tensors[0])
 
         image = image_tensors.to(device)
         text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
 
-        # if 'CTC' in opt.Prediction:
         feature = model(image)
-        preds = simclr_head(feature.view(-1, 26, feature.shape[1]))
-        preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-        if opt.baiduCTC:
-            preds = preds.permute(1, 0, 2)  # to use CTCLoss format
-            cost = criterion(preds, text, preds_size, length) / batch_size
-        else:
-            preds = preds.log_softmax(2).permute(1, 0, 2)
-            cost = criterion(preds, text, preds_size, length)
 
-        # else:
-        # feature = model(image)  # align with Attention.forward
-        # preds = head(feature.view(-1, 26, feature.shape[1]))
-        # print(preds.shape)
-        # target = text[:, 1:]  # without [GO] Symbol
-        # cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
+        if 'CTC' in opt.Prediction:
+            preds = simclr_head(feature.view(-1, 26, feature.shape[1]), text)
+            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+            if opt.baiduCTC:
+                preds = preds.permute(1, 0, 2)  # to use CTCLoss format
+                cost = criterion(preds, text, preds_size, length) / batch_size
+            else:
+                preds = preds.log_softmax(2).permute(1, 0, 2)
+                cost = criterion(preds, text, preds_size, length)
+        else:
+            preds = simclr_head(feature.view(-1, 26, feature.shape[1]), text[:, :-1])
+            target = text[:, 1:]  # without [GO] Symbol
+            cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
         optimizer.zero_grad()
         cost.backward()

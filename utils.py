@@ -196,9 +196,9 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
-def info_nce_loss(features, batch_size, device, n_views=2, temperature=1):
+def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of_features=13):
 
-    num_of_features = 3
+    # num_of_features = 3
     # print(features.shape)
     batch_features = features.view(batch_size,-1,features.shape[1])
     limit_features_first = batch_features[:,:num_of_features*2-1,:]
