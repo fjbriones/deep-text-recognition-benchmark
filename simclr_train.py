@@ -277,8 +277,8 @@ def train(opt):
                 #f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 2 accuracy":17s}: {top5_acc:0.3f}'
 
                 # keep best accuracy model (on valid dataset)
-                if accs_avg[0].val() > best_accuracy:
-                    best_accuracy = accs_avg[0].val()
+                if accs[0] > best_accuracy:
+                    best_accuracy = accs[0].val()
                     torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
                 best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}'
 
