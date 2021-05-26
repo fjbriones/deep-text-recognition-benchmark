@@ -11,6 +11,7 @@
 *.zip
 *.eps
 *.pdf
+images/
 
 data_lmdb_release/
 

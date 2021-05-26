@@ -82,7 +82,7 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
     return None
 
 
-def validation(model, criterion, evaluation_loader, converter, device, opt, topk=(1,2,3,4,5)):
+def validation(model, criterion, evaluation_loader, converter, device, iteration, opt, topk=(1,2,3,4,5)):
     """ validation or evaluation """
     average_accuracies = [Averager() for k in topk]
     total_iters = 0
@@ -103,7 +103,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
 
         
 
-        if i % 100 == 0:
+        if i == 0:
             show_images = ((np.squeeze(image_tensors.cpu().numpy())+1.)/2. * 255.).astype(np.uint8)
             fig, ax = plt.subplots(4,2)
             # plt.subplot(4,2,1)
@@ -123,7 +123,7 @@ def validation(model, criterion, evaluation_loader, converter, device, opt, topk
             # plt.subplot(4,2,8)
             ax[3,1].imshow(show_images[int(show_images.shape[0]/2 + 3)], cmap='gray')
             # plt.show()
-            plt.savefig('sample_images.png')
+            plt.savefig(os.path.join(opt.image_directories, 'valid_{:06d}.png'.format(iteration)))
 
             plt.close('all')
 

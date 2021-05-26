@@ -18,6 +18,7 @@ from simclr_model import FeaturesModel as Model
 from simclr_test import validation
 from imgaug import augmenters as iaa
 import imgaug as ia
+import matplotlib.pyplot as plt
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -173,6 +174,7 @@ def train(opt):
         # print(image_tensors.shape)
         # print(image_tensors[0])
 
+
         # image_tensors = torch.cat(image_tensors, dim=0)
         image = image_tensors.to(device)
         # text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
@@ -223,18 +225,39 @@ def train(opt):
         # print("Top 1 acc:", top1[0])
         # print("Top 5 acc:", top5[0])
 
-        
-
-
         # validation part
         if (iteration + 1) % opt.valInterval == 0 or iteration == 0: # To see training progress, we also conduct validation when 'iteration == 0' 
             elapsed_time = time.time() - start_time
             # for log
+            
+            show_images = ((np.squeeze(image_tensors.cpu().numpy())+1.)/2. * 255.).astype(np.uint8)
+            fig, ax = plt.subplots(4,2)
+            # plt.subplot(4,2,1)
+            ax[0,0].imshow(show_images[0], cmap='gray')
+            # plt.subplot(4,2,2)
+            ax[0,1].imshow(show_images[int(show_images.shape[0]/2)], cmap='gray')
+            # plt.subplot(4,2,3)
+            ax[1,0].imshow(show_images[1], cmap='gray')
+            # plt.subplot(4,2,4)
+            ax[1,1].imshow(show_images[int(show_images.shape[0]/2 + 1)], cmap='gray')
+            # plt.subplot(4,2,5)
+            ax[2,0].imshow(show_images[2], cmap='gray')
+            # plt.subplot(4,2,6)
+            ax[2,1].imshow(show_images[int(show_images.shape[0]/2 + 2)], cmap='gray')
+            # plt.subplot(4,2,7)
+            ax[3,0].imshow(show_images[3], cmap='gray')
+            # plt.subplot(4,2,8)
+            ax[3,1].imshow(show_images[int(show_images.shape[0]/2 + 3)], cmap='gray')
+            # plt.show()
+            plt.savefig(os.path.join(opt.image_directories, 'sample_{:06d}.png'.format(iteration)))
+
+            plt.close('all')
+
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
                 model.eval()
                 with torch.no_grad():
                     valid_loss, accs = validation(
-                        model, criterion, valid_loader, converter, device, opt)
+                        model, criterion, valid_loader, converter, device, iteration, opt)
                 model.train()
 
                 # training loss and validation loss
@@ -275,6 +298,7 @@ def train(opt):
             print('end the training')
             sys.exit()
         iteration += 1
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -327,6 +351,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     parser.add_argument('--final_layer', type=int, default=128, help='final layer hidden state')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
+    parser.add_argument('--image_directories', type=str, default="images", help="directory for images")
 
     opt = parser.parse_args()
 
@@ -336,6 +361,8 @@ if __name__ == '__main__':
         # print(opt.exp_name)
 
     os.makedirs(f'./saved_models/{opt.exp_name}', exist_ok=True)
+
+    os.makedirs(opt.image_directories, exist_ok=True)
 
     """ vocab / character number configuration """
     if opt.sensitive:

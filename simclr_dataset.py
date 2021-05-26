@@ -120,6 +120,19 @@ class Batch_Balanced_Dataset(object):
             except ValueError:
                 print("Passing")
                 pass
+            # print(len(balanced_batch_images))
+            if balanced_batch_images[0].shape[0] % 2 == 0:
+                query = balanced_batch_images[0]
+                balanced_batch_images1.append(query[:int(query.shape[0]/2)])
+                balanced_batch_images2.append(query[int(query.shape[0]/2):])
+            balanced_batch_images = []
+
+        balanced_batch_images1 = torch.cat(balanced_batch_images1, 0)
+        balanced_batch_images2 = torch.cat(balanced_batch_images2, 0)
+        balanced_batch_images = [balanced_batch_images1, balanced_batch_images2]
+
+        # print(balanced_batch_images[0].shape)
+        # balanced_batch_images = balanced_batch_images1 + balanced_batch_images2
 
         # for bb in balanced_batch_images:
         #     print(len(bb))
