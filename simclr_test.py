@@ -298,6 +298,14 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             else:
                 _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index.data, preds_size.data)
+            unfiltered = ""
+            characters = '/' + opt.character
+            for ind in preds_index.data[0]:
+                unfiltered += characters[ind]
+            # print("----------------------------------------------------")
+            # print("Unfi ", unfiltered)
+            # print("Pred ", preds_str[0])
+            # print("Labl ", labels[0])
         
         else:
             feature = model(image, is_train=False)
@@ -312,6 +320,11 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index, length_for_pred)
             labels = converter.decode(text_for_loss[:, 1:], length_for_loss)
+
+            # plt.imshow(image_tensors[0,0].cpu().numpy())
+            # print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
+            # print("Labl ", labels[0][:labels[0].find('[s]')])
+            # plt.show()
 
         infer_time += forward_time
         valid_loss_avg.add(cost)

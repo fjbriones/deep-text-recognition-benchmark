@@ -183,7 +183,7 @@ def train(opt):
 
     while(True):
         # train part
-        for i in tqdm(range(1000)):
+        for i in tqdm(range(opt.val_interval)):
             image_tensors, labels = train_dataset.get_batch()
 
             image = image_tensors.to(device)

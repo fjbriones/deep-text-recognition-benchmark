@@ -147,21 +147,27 @@ def train(opt):
 
     """ start training """
     start_iter = 0
-    # if opt.saved_model != '':
-    #     try:
-    #         start_iter = int(opt.saved_model.split('_')[-1].split('.')[0])
-    #         print(f'continue to train, start_iter: {start_iter}')
-    #     except:
-    #         pass
+    if opt.saved_head_model != '':
+        try:
+            simclr_head.load_state_dict(torch.load(opt.saved_head_model))
+            start_iter = int(opt.saved__head_model.split('_')[-1].split('.')[0])
+            print(f'continue to train, start_iter: {start_iter}')
+        except:
+            pass
 
     start_time = time.time()
     best_accuracy = -1
     best_norm_ED = -1
     iteration = start_iter
 
+
+
     while(True):
         # train part
         image_tensors, labels = train_dataset.get_batch()
+
+        batch_size = image_tensors.size(0)
+        length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
 
         image = image_tensors.to(device)
         text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
@@ -182,6 +188,13 @@ def train(opt):
             preds = simclr_head(feature.view(-1, 26, feature.shape[1]), text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
+
+            _, preds_index = preds.max(2)
+            preds_str = converter.decode(preds_index, length_for_pred)
+            print("------------------------------------------------")
+            print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
+            print("Labl ", labels[0])
+
 
         optimizer.zero_grad()
         cost.backward()
@@ -212,10 +225,10 @@ def train(opt):
                 # keep best accuracy model (on valid dataset)
                 if current_accuracy > best_accuracy:
                     best_accuracy = current_accuracy
-                    torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
+                    torch.save(simclr_head.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
                 if current_norm_ED > best_norm_ED:
                     best_norm_ED = current_norm_ED
-                    torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_norm_ED.pth')
+                    torch.save(simclr_head.state_dict(), f'./saved_models/{opt.exp_name}/best_norm_ED.pth')
                 best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}, {"Best_norm_ED":17s}: {best_norm_ED:0.2f}'
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
@@ -258,6 +271,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
     parser.add_argument('--valInterval', type=int, default=2000, help='Interval between each validation')
     parser.add_argument('--saved_model', default='', help="path to model to continue training")
+    parser.add_argument('--saved_head_model', default='', help="path to head to continue training")
     parser.add_argument('--FT', action='store_true', help='whether to do fine-tuning')
     parser.add_argument('--adam', action='store_true', help='Whether to use adam (default is Adadelta)')
     parser.add_argument('--lr', type=float, default=1, help='learning rate, default=1.0 for Adadelta')
