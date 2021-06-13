@@ -173,11 +173,9 @@ def train(opt):
         except:
             pass
 
-    start_time = time.time()
+
     best_loss = None
     iteration = start_iter
-
-
     print(device)
     valid_loss_avg = Averager()
 
@@ -200,8 +198,6 @@ def train(opt):
 
             iteration += 1
 
-        # save model per 1e+5 iter.
-        # if (iteration + 1) % 1e+4 == 0 or iteration == 0:
         
         byol_learner.eval()
         for image_tensors, labels in valid_loader:
@@ -211,6 +207,9 @@ def train(opt):
 
 
         byol_learner.train()
+
+        with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
+            log.write("Iteration {:06d} Loss: {:.04f} Val loss: {:04f}".format(iteration, loss_avg.val(), valid_loss_avg.val()) + '\n')
 
         print("Iteration {:06d} Loss: {:.04f} Val loss: {:04f}".format(iteration, loss_avg.val(), valid_loss_avg.val()))
         if best_loss is None:
