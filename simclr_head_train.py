@@ -189,11 +189,11 @@ def train(opt):
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
-            _, preds_index = preds.max(2)
-            preds_str = converter.decode(preds_index, length_for_pred)
-            print("------------------------------------------------")
-            print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
-            print("Labl ", labels[0])
+            # _, preds_index = preds.max(2)
+            # preds_str = converter.decode(preds_index, length_for_pred)
+            # print("------------------------------------------------")
+            # print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
+            # print("Labl ", labels[0])
 
 
         optimizer.zero_grad()
