@@ -22,6 +22,7 @@ from imgaug import augmenters as iaa
 import imgaug as ia
 
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -61,21 +62,11 @@ def train(opt):
     log.write('-' * 80 + '\n')
     log.close()
     
-    """ model configuration """
-    if 'CTC' in opt.Prediction:
-        if opt.baiduCTC:
-            converter = CTCLabelConverterForBaiduWarpctc(opt.character)
-        else:
-            converter = CTCLabelConverter(opt.character)
-    else:
-        converter = AttnLabelConverter(opt.character)
-    opt.num_class = len(converter.character)
-
     if opt.rgb:
         opt.input_channel = 3
     model = Model(opt)
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.hidden_size, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
 
     # weight initialization
@@ -105,19 +96,6 @@ def train(opt):
     print("Model:")
     print(model)
 
-    """ setup loss """
-    # if 'CTC' in opt.Prediction:
-    #     if opt.baiduCTC:
-    #         # need to install warpctc. see our guideline.
-    #         from warpctc_pytorch import CTCLoss 
-    #         criterion = CTCLoss()
-    #     else:
-    #         criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
-    # else:
-    #     criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
-    # loss averager
-    loss_avg = Averager()
-
     image_transforms = iaa.Sequential([iaa.SomeOf((1, 5), 
                           [iaa.LinearContrast((0.5, 1.0)),
                           iaa.GaussianBlur((0.5, 1.5)),
@@ -136,6 +114,8 @@ def train(opt):
         augment_fn=image_transforms,
         augmented=True)
 
+    print(byol_learner)
+
     # filter that only require gradient decent
     filtered_parameters = []
     params_num = []
@@ -152,6 +132,9 @@ def train(opt):
         optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
     print("Optimizer:")
     print(optimizer)
+
+    #LR Scheduler:
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=int(50000/opt.valInterval), gamma=0.1)
 
     """ final options """
     # print(opt)
@@ -177,16 +160,19 @@ def train(opt):
     best_loss = None
     iteration = start_iter
     print(device)
+    loss_avg = Averager()
     valid_loss_avg = Averager()
 
     while(True):
         # train part
         for i in tqdm(range(opt.valInterval)):
-            image_tensors, labels = train_dataset.get_batch()
-
+            image_tensors, _ = train_dataset.get_batch()
             image = image_tensors.to(device)
-            loss = byol_learner(image)
+
             optimizer.zero_grad()
+
+            loss = byol_learner(image)
+            
             loss.backward()
             optimizer.step()
             byol_learner.update_moving_average()
@@ -200,18 +186,18 @@ def train(opt):
 
         
         byol_learner.eval()
-        for image_tensors, labels in valid_loader:
+        model.eval()
+        for image_tensors, _ in valid_loader:
             image = image_tensors.to(device)
             val_loss = byol_learner(image)
             valid_loss_avg.add(val_loss)
-
-
+        model.train()
         byol_learner.train()
 
         with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
-            log.write("Iteration {:06d} Loss: {:.04f} Val loss: {:04f}".format(iteration, loss_avg.val(), valid_loss_avg.val()) + '\n')
+            log.write("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()) + '\n')
 
-        print("Iteration {:06d} Loss: {:.04f} Val loss: {:04f}".format(iteration, loss_avg.val(), valid_loss_avg.val()))
+        print("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()))
         if best_loss is None:
             best_loss = valid_loss_avg.val()
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
@@ -219,7 +205,7 @@ def train(opt):
             best_loss = valid_loss_avg.val()
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
 
-        
+        scheduler.step()
         loss_avg.reset()
         valid_loss_avg.reset()
 
