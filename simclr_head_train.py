@@ -125,6 +125,8 @@ def train(opt):
     print("Optimizer:")
     print(optimizer)
 
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50000, gamma=0.1)
+
     """ final options """
     # print(opt)
     with open(f'./saved_models/{opt.exp_name}/opt.txt', 'a') as opt_file:
@@ -191,7 +193,7 @@ def train(opt):
         cost.backward()
         torch.nn.utils.clip_grad_norm_(simclr_head.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
-
+        scheduler.step()
         loss_avg.add(cost)
 
         # validation part
