@@ -102,12 +102,9 @@ class FeaturesModel(nn.Module):
         else:
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
-
-        # final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
-        # print(contextual_feature.shape)
-        # print(contextual_feature.shape)
-        final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
-        # final_feature = final_feature.view(-1, final_feature.shape[2])
-        # print(contextual_feature.shape)
+        if opt.FinalLayer:
+            final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
+        else:
+            final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         
         return final_feature
