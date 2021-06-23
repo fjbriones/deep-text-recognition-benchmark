@@ -195,7 +195,7 @@ def train(opt):
                 valid_loss_avg.add(val_loss)
 
                 features = model(image)
-                features = features.view(-1, 26, features.shape[2])
+                features = features.view(-1, 26, features.shape[1])
 
                 kl_div = torch.nn.KLDivLoss(features[:opt.batch_size], features[opt.batch_size:])
                 kl_loss_avg.add(kl_div)
