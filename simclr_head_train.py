@@ -167,9 +167,10 @@ def train(opt):
         batch_size = image.size(0)
 
         feature = model(image)
+        feature = feature.view(-1, 26, feature.shape[1]).detach()
 
         if 'CTC' in opt.Prediction:
-            preds = simclr_head(feature.view(-1, 26, feature.shape[1]), text)
+            preds = simclr_head(feature, text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
             if opt.baiduCTC:
                 preds = preds.permute(1, 0, 2)  # to use CTCLoss format
@@ -178,7 +179,7 @@ def train(opt):
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
         else:
-            preds = simclr_head(feature.view(-1, 26, feature.shape[1]), text[:, :-1])
+            preds = simclr_head(feature, text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
