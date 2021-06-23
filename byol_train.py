@@ -163,6 +163,7 @@ def train(opt):
     loss_avg = Averager()
     valid_loss_avg = Averager()
     kl_loss_avg = Averager()
+    kl_loss = torch.nn.KLDivLoss()
 
     while(True):
         # train part
@@ -197,7 +198,7 @@ def train(opt):
                 features = model(image)
                 features = features.view(-1, 26, features.shape[1])
 
-                kl_div = torch.nn.KLDivLoss(features[:opt.batch_size], features[opt.batch_size:])
+                kl_div = kl_loss(features[:opt.batch_size], features[opt.batch_size:])
                 kl_loss_avg.add(kl_div)
         model.train()
         byol_learner.train()
