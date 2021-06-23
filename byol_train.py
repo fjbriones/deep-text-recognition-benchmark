@@ -162,6 +162,7 @@ def train(opt):
     print(device)
     loss_avg = Averager()
     valid_loss_avg = Averager()
+    kl_loss_avg = Averager()
 
     while(True):
         # train part
@@ -187,21 +188,24 @@ def train(opt):
         
         byol_learner.eval()
         model.eval()
-        for image_tensors, _ in valid_loader:
-            image = image_tensors.to(device)
-            val_loss = byol_learner(image)
-            valid_loss_avg.add(val_loss)
+        with torch.no_grad():
+            for image_tensors, _ in valid_loader:
+                image = image_tensors.to(device)
+                val_loss = byol_learner(image)
+                valid_loss_avg.add(val_loss)
 
+                features = model(image)
+                features = features.view(-1, 26, features.shape[2])
 
-            preds = model(image)
-            print(preds[:5])
+                kl_div = torch.nn.KLDivLoss(features[:opt.batch_size], features[opt.batch_size:])
+                kl_loss_avg.add(kl_div)
         model.train()
         byol_learner.train()
 
         with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
-            log.write("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()) + '\n')
+            log.write("Iteration {:06d} Loss: {:.06f} Val loss: {:06f} Val KL loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val(), kl_loss_avg.val()) + '\n')
 
-        print("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()))
+        print("Iteration {:06d} Loss: {:.06f} Val loss: {:06f} Val KL loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val(), kl_loss_avg.val()))
         if best_loss is None:
             best_loss = valid_loss_avg.val()
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
@@ -212,6 +216,7 @@ def train(opt):
         scheduler.step()
         loss_avg.reset()
         valid_loss_avg.reset()
+        kl_loss_avg.reset()
 
         if (iteration + 1) == opt.num_iter:
             print('end the training')
