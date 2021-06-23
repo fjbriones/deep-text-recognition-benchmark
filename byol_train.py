@@ -198,7 +198,7 @@ def train(opt):
                 features = model(image)
                 features = features.view(-1, 26, features.shape[1])
 
-                kl_div = kl_loss(features[:opt.batch_size], features[opt.batch_size:])
+                kl_div = kl_loss(features[:int(features.shape[0]/2)], features[int(features.shape[0]/2):])
                 kl_loss_avg.add(kl_div)
         model.train()
         byol_learner.train()
