@@ -191,6 +191,10 @@ def train(opt):
             image = image_tensors.to(device)
             val_loss = byol_learner(image)
             valid_loss_avg.add(val_loss)
+
+
+            preds = model(image)
+            print(preds[:5])
         model.train()
         byol_learner.train()
 
