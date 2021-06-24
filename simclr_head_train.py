@@ -87,8 +87,8 @@ def train(opt):
     print("Model:")
     print(model)
 
-    for param in model.parameters():
-        param.requires_grad = False
+    # for param in model.parameters():
+    #     param.requires_grad = False
 
     """ setup loss """
     if 'CTC' in opt.Prediction:
