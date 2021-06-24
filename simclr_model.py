@@ -105,6 +105,6 @@ class FeaturesModel(nn.Module):
         if self.opt.FinalLayer and is_train:
             final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
         else:
-            final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+            final_feature = contextual_feature.contiguous()
         
         return final_feature
