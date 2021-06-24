@@ -169,7 +169,7 @@ def train(opt):
         batch_size = image.size(0)
 
         feature = model(image, is_train=False)
-        feature = feature.view(-1, 26, feature.shape[1]).detach()
+        feature = feature.view(-1, 26, feature.shape[1])
 
         if 'CTC' in opt.Prediction:
             preds = simclr_head(feature, text)
