@@ -84,7 +84,6 @@ def train(opt):
             model.load_state_dict(torch.load(opt.saved_model), strict=False)
         else:
             model.load_state_dict(torch.load(opt.saved_model))
-    model.eval()
     print("Model:")
     print(model)
 
@@ -112,6 +111,9 @@ def train(opt):
 
     filtered_parameters = []
     params_num = []
+    for p in filter(lambda p: p.requires_grad, model.parameters()):
+        filtered_parameters.append(p)
+        params_num.append(np.prod(p.size()))
     for p in filter(lambda p: p.requires_grad, simclr_head.parameters()):
         filtered_parameters.append(p)
         params_num.append(np.prod(p.size()))
@@ -202,11 +204,13 @@ def train(opt):
             elapsed_time = time.time() - start_time
             # for log
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
+                model.eval()
                 simclr_head.eval()
                 with torch.no_grad():
                     valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
                         model, simclr_head, criterion, valid_loader, converter, opt)
                 simclr_head.train()
+                model.train()
 
                 # training loss and validation loss
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
