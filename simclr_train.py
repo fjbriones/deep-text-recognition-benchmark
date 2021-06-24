@@ -353,7 +353,8 @@ if __name__ == '__main__':
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--image_directories', type=str, default="images", help="directory for images")
     parser.add_argument('--num_of_features', type=int, default=13, help="Limiting calculations on info_nce_loss to this number of features")
-
+    parser.add_argument('--FinalLayer', action='store_true', help='Use a final projection layer')
+    
     opt = parser.parse_args()
 
     if not opt.exp_name:
