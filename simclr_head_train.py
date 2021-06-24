@@ -166,7 +166,7 @@ def train(opt):
         text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
 
-        feature = model(image)
+        feature = model(image, is_train=False)
         feature = feature.view(-1, 26, feature.shape[1]).detach()
 
         if 'CTC' in opt.Prediction:
