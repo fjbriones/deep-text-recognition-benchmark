@@ -280,7 +280,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         start_time = time.time()
         if 'CTC' in opt.Prediction:
             feature = model(image, is_train=False)
-            preds = head(feature.view(-1, 26, feature.shape[1]), text_for_pred)
+            preds = head(feature, text_for_pred)
             forward_time = time.time() - start_time
 
             # Calculate evaluation loss for CTC deocder.
@@ -309,7 +309,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         
         else:
             feature = model(image, is_train=False)
-            preds = head(feature.view(-1, 26, feature.shape[1]), text_for_pred, is_train=False)
+            preds = head(feature, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
             preds = preds[:, :text_for_loss.shape[1] - 1, :]
