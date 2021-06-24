@@ -146,9 +146,6 @@ def train(opt):
         # train part
         image_tensors, labels = train_dataset.get_batch()
 
-        print(image_tensors.shape)
-        print(image_tensors[0])
-
         image = image_tensors.to(device)
         text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
