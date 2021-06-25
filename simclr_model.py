@@ -26,14 +26,14 @@ class Head(nn.Module):
     def __init__(self, opt):
         super(Head, self).__init__()
         self.opt = opt
-        if opt.Prediction == 'CTC':
+        if opt.Prediction == 'CTC' or opt.Prediction == 'Linear':
             self.Prediction = nn.Linear(opt.hidden_size, opt.num_class)
         elif opt.Prediction == 'Attn':
             self.Prediction = Attention(opt.hidden_size, opt.hidden_size, opt.num_class)
         else:
             raise Exception('Prediction is neither CTC or Attn')
     def forward(self, x, text, is_train=True):
-        if self.opt.Prediction == 'CTC':
+        if self.opt.Prediction == 'CTC' or self.opt.Prediction == 'Linear':
             prediction = self.Prediction(x)
         else:
             prediction = self.Prediction(x, text, is_train, batch_max_length=self.opt.batch_max_length)

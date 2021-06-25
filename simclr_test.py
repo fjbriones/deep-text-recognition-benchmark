@@ -307,7 +307,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             # print("Pred ", preds_str[0])
             # print("Labl ", labels[0])
         
-        else:
+        elif 'Attn' in opt.Prediction:
             feature = model(image, is_train=False)
             preds = head(feature, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
@@ -326,6 +326,17 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             # print("Labl ", labels[0][:labels[0].find('[s]')])
             # plt.show()
 
+        else:
+            feature = model(image, is_train=False)
+            preds = head(feature, text_for_pred, is_train=False)
+            forward_time = time.time() - start_time
+
+            cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), text_for_loss.contiguous().view(-1))
+            _, preds_index = preds.max(2)
+            preds_str = converter.decode(preds_index, length_for_pred)
+            labels = converter.decode(text_for_loss, length_for_loss)
+
+
         infer_time += forward_time
         valid_loss_avg.add(cost)
 
@@ -337,6 +348,12 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             if 'Attn' in opt.Prediction:
                 gt = gt[:gt.find('[s]')]
                 pred_EOS = pred.find('[s]')
+                pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                pred_max_prob = pred_max_prob[:pred_EOS]
+
+            if 'Linear' in opt.Prediction:
+                gt = gt[:gt.find(';')]
+                pred_EOS = pred.find(';')
                 pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
                 pred_max_prob = pred_max_prob[:pred_EOS]
 

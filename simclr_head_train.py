@@ -12,7 +12,7 @@ import torch.optim as optim
 import torch.utils.data
 import numpy as np
 
-from utils import CTCLabelConverter, CTCLabelConverterForBaiduWarpctc, AttnLabelConverter, Averager
+from utils import CTCLabelConverter, CTCLabelConverterForBaiduWarpctc, LinearLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from simclr_model import FeaturesModel as Model
 from simclr_model import Head
@@ -50,8 +50,10 @@ def train(opt):
             converter = CTCLabelConverterForBaiduWarpctc(opt.character)
         else:
             converter = CTCLabelConverter(opt.character)
-    else:
+    elif 'Attn' in opt.Prediction:
         converter = AttnLabelConverter(opt.character)
+    else:
+        converter = LinearLabelConverter(opt.character)
     opt.num_class = len(converter.character)
 
     if opt.rgb:
@@ -86,6 +88,7 @@ def train(opt):
             model.load_state_dict(torch.load(opt.saved_model))
     print("Model:")
     print(model)
+    model.eval()
 
     # for param in model.parameters():
     #     param.requires_grad = False
@@ -98,8 +101,10 @@ def train(opt):
             criterion = CTCLoss()
         else:
             criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
-    else:
+    elif 'Attn' in opt.Prediction:
         criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
+    else:
+        criterion = torch.nn.CrossEntropyLoss().to(device)
     # loss averager
     loss_avg = Averager()
 
@@ -108,12 +113,27 @@ def train(opt):
     simclr_head = simclr_head.to(device)
     simclr_head.train()
 
+    for name, param in simclr_head.named_parameters():
+        if 'localization_fc2' in name:
+            print(f'Skip {name} as it is already initialized')
+            continue
+        try:
+            if 'bias' in name:
+                init.constant_(param, 0.0)
+            elif 'weight' in name:
+                init.kaiming_normal_(param)
+        except Exception as e:  # for batchnorm.
+            if 'weight' in name:
+                param.data.fill_(1)
+            continue
+
+
 
     filtered_parameters = []
     params_num = []
-    for p in filter(lambda p: p.requires_grad, model.parameters()):
-        filtered_parameters.append(p)
-        params_num.append(np.prod(p.size()))
+    # for p in filter(lambda p: p.requires_grad, model.parameters()):
+    #     filtered_parameters.append(p)
+    #     params_num.append(np.prod(p.size()))
     for p in filter(lambda p: p.requires_grad, simclr_head.parameters()):
         filtered_parameters.append(p)
         params_num.append(np.prod(p.size()))
@@ -172,7 +192,7 @@ def train(opt):
         # feature = feature.view(-1, 26, feature.shape[1])
 
         if 'CTC' in opt.Prediction:
-            preds = simclr_head(feature, text)
+            preds = simclr_head(feature.detach(), text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
             if opt.baiduCTC:
                 preds = preds.permute(1, 0, 2)  # to use CTCLoss format
@@ -180,10 +200,14 @@ def train(opt):
             else:
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
-        else:
-            preds = simclr_head(feature, text[:, :-1])
+        elif 'Attn' in opt.Prediction:
+            preds = simclr_head(feature.detach(), text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
+        else:
+            preds = simclr_head(feature.detach(), text)
+            cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), text.contiguous().view(-1))
+
 
             # _, preds_index = preds.max(2)
             # preds_str = converter.decode(preds_index, length_for_pred)
@@ -194,7 +218,7 @@ def train(opt):
 
         optimizer.zero_grad()
         cost.backward()
-        torch.nn.utils.clip_grad_norm_(simclr_head.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
+        torch.nn.utils.clip_grad_norm_(filtered_parameters, opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
         scheduler.step()
         loss_avg.add(cost)
@@ -204,13 +228,11 @@ def train(opt):
             elapsed_time = time.time() - start_time
             # for log
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
-                model.eval()
                 simclr_head.eval()
                 with torch.no_grad():
                     valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
                         model, simclr_head, criterion, valid_loader, converter, opt)
                 simclr_head.train()
-                model.train()
 
                 # training loss and validation loss
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
@@ -241,6 +263,9 @@ def train(opt):
                     if 'Attn' in opt.Prediction:
                         gt = gt[:gt.find('[s]')]
                         pred = pred[:pred.find('[s]')]
+                    if 'Linear' in opt.Prediction:
+                        gt = gt[:gt.find(';')]
+                        pred = pred[:pred.find(';')]
 
                     predicted_result_log += f'{gt:25s} | {pred:25s} | {confidence:0.4f}\t{str(pred == gt)}\n'
                 predicted_result_log += f'{dashed_line}'
@@ -301,7 +326,7 @@ if __name__ == '__main__':
     parser.add_argument('--FeatureExtraction', type=str, required=True,
                         help='FeatureExtraction stage. VGG|RCNN|ResNet')
     parser.add_argument('--SequenceModeling', type=str, required=True, help='SequenceModeling stage. None|BiLSTM')
-    parser.add_argument('--Prediction', type=str, required=True, help='Prediction stage. CTC|Attn')
+    parser.add_argument('--Prediction', type=str, required=True, help='Prediction stage. CTC|Attn|Linear')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1,
                         help='the number of input channel of Feature extractor')

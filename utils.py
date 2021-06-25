@@ -103,6 +103,36 @@ class CTCLabelConverterForBaiduWarpctc(object):
         return texts
 
 
+class LinearLabelConverter(object):
+
+    def __init__(self, character):
+        list_token = [';']
+        list_character = list(character)
+        self.character = list_token + list_character
+
+        self.dict = {}
+        for i, char in enumerate(self.character):
+            # print(i, char)
+            self.dict[char] = i
+
+    def encode(self, text, batch_max_length=25):
+        length = [len(s) for s in text]
+        batch_text = torch.LongTensor(len(text), batch_max_length + 1).fill_(0)
+        for i, t in enumerate(text):
+            text_list = list(t)
+            text_index_list = [self.dict[char] for char in text_list]
+            batch_text[i][:len(text_index_list)] = torch.LongTensor(text_index_list)
+        return (batch_text.to(device), torch.IntTensor(length).to(device))
+
+    def decode(self, text_index, length):
+        texts = []
+        for index, l in enumerate(length):
+            text = ''.join([self.character[i] for i in text_index[index, :]])
+            texts.append(text)
+        return texts
+
+
+
 class AttnLabelConverter(object):
     """ Convert between text-label and text-index """
 
@@ -135,10 +165,10 @@ class AttnLabelConverter(object):
         # additional +1 for [GO] at first step. batch_text is padded with [GO] token after [s] token.
         batch_text = torch.LongTensor(len(text), batch_max_length + 1).fill_(0)
         for i, t in enumerate(text):
-            text = list(t)
-            text.append('[s]')
-            text = [self.dict[char] for char in text]
-            batch_text[i][1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
+            text_list = list(t)
+            text_list.append('[s]')
+            text_list = [self.dict[char] for char in text_list]
+            batch_text[i][1:1 + len(text_list)] = torch.LongTensor(text_list)  # batch_text[:, 0] = [GO] token
         return (batch_text.to(device), torch.IntTensor(length).to(device))
 
     def decode(self, text_index, length):
