@@ -212,7 +212,7 @@ def train(opt):
                 model.eval()
                 with torch.no_grad():
                     valid_loss, accs = validation(
-                        model, criterion, valid_loader, converter, device, iteration, opt)
+                        model, criterion, valid_loader, device, iteration, opt)
                 model.train()
 
                 # training loss and validation loss
