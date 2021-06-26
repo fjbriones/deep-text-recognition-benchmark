@@ -222,7 +222,6 @@ def train(opt):
         scheduler.step()
         loss_avg.reset()
         valid_loss_avg.reset()
-        kl_loss_avg.reset()
 
         if (iteration + 1) == opt.num_iter:
             print('end the training')
