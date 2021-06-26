@@ -63,13 +63,11 @@ def train(opt):
     log.write('-' * 80 + '\n')
     log.close()
     
-    opt.num_class = len(converter.character)
-
     if opt.rgb:
         opt.input_channel = 3
     model = Model(opt)
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.hidden_size, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling)
 
     # weight initialization
