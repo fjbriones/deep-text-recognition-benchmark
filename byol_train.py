@@ -129,12 +129,12 @@ def train(opt):
     if opt.adam:
         optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
     else:
-        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
+        optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps, weight_decay=opt.weight_decay)
     print("Optimizer:")
     print(optimizer)
 
-    #LR Scheduler:
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=int(50000/opt.valInterval), gamma=0.1)
+    
+    
 
     """ final options """
     # print(opt)
@@ -156,14 +156,17 @@ def train(opt):
         except:
             pass
 
+    #LR Scheduler:
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(0.6*opt.num_iter), int(0.8*opt.num_iter)], last_epoch=start_iter-1, gamma=0.1)
+
 
     best_loss = None
     iteration = start_iter
     print(device)
     loss_avg = Averager()
     valid_loss_avg = Averager()
-    kl_loss_avg = Averager()
-    kl_loss = torch.nn.KLDivLoss()
+    # kl_loss_avg = Averager()
+    # kl_loss = torch.nn.KLDivLoss()
 
     while(True):
         # train part
@@ -176,7 +179,9 @@ def train(opt):
             loss = byol_learner(image)
             
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)
             optimizer.step()
+            scheduler.step()
             byol_learner.update_moving_average()
 
             loss_avg.add(loss)
@@ -195,18 +200,18 @@ def train(opt):
                 val_loss = byol_learner(image)
                 valid_loss_avg.add(val_loss)
 
-                features = model(image)
-                features = features.view(-1, 26, features.shape[1])
+                # features = model(image)
+                # features = features.view(-1, 26, features.shape[1])
 
-                kl_div = kl_loss(features[:int(features.shape[0]/2)], features[int(features.shape[0]/2):])
-                kl_loss_avg.add(kl_div)
+                # kl_div = kl_loss(features[:int(features.shape[0]/2)], features[int(features.shape[0]/2):])
+                # kl_loss_avg.add(kl_div)
         model.train()
         byol_learner.train()
 
         with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
-            log.write("Iteration {:06d} Loss: {:.06f} Val loss: {:06f} Val KL loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val(), kl_loss_avg.val()) + '\n')
+            log.write("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()) + '\n')
 
-        print("Iteration {:06d} Loss: {:.06f} Val loss: {:06f} Val KL loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val(), kl_loss_avg.val()))
+        print("Iteration {:06d} Loss: {:.06f} Val loss: {:06f}".format(iteration, loss_avg.val(), valid_loss_avg.val()))
         if best_loss is None:
             best_loss = valid_loss_avg.val()
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
@@ -275,6 +280,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--final_layer', type=int, default=128, help='final layer hidden state')
     parser.add_argument('--FinalLayer', action='store_true', help='Use a final projection layer')
+    parser.add_argument('--weight_decay', type=float, default=10e-4, help='Weight decay')
 
     opt = parser.parse_args()
 
