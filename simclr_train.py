@@ -63,14 +63,6 @@ def train(opt):
     log.write('-' * 80 + '\n')
     log.close()
     
-    """ model configuration """
-    if 'CTC' in opt.Prediction:
-        if opt.baiduCTC:
-            converter = CTCLabelConverterForBaiduWarpctc(opt.character)
-        else:
-            converter = CTCLabelConverter(opt.character)
-    else:
-        converter = AttnLabelConverter(opt.character)
     opt.num_class = len(converter.character)
 
     if opt.rgb:
@@ -78,7 +70,7 @@ def train(opt):
     model = Model(opt)
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
-          opt.SequenceModeling, opt.Prediction)
+          opt.SequenceModeling)
 
     # weight initialization
     for name, param in model.named_parameters():
@@ -107,16 +99,8 @@ def train(opt):
     print("Model:")
     print(model)
 
-    """ setup loss """
-    # if 'CTC' in opt.Prediction:
-    #     if opt.baiduCTC:
-    #         # need to install warpctc. see our guideline.
-    #         from warpctc_pytorch import CTCLoss 
-    #         criterion = CTCLoss()
-    #     else:
-    #         criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
-    # else:
-    criterion = torch.nn.CrossEntropyLoss().to(device)  # ignore [GO] token = ignore index 0
+
+    criterion = torch.nn.CrossEntropyLoss().to(device)
     # loss averager
     loss_avg = Averager()
     topk = [1,2,3,4,5]
@@ -139,10 +123,7 @@ def train(opt):
     
     print("Optimizer:")
     print(optimizer)
-
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=int(opt.num_iter/5e4), eta_min=0, last_epoch=-1,verbose=True)
-
-
+        
 
     """ final options """
     # print(opt)
@@ -164,6 +145,10 @@ def train(opt):
         except:
             pass
 
+    #LR Scheduler:
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(0.6*opt.num_iter), int(0.8*opt.num_iter)], last_epoch=start_iter-1, gamma=0.1)
+
+
     start_time = time.time()
     best_accuracy = -1
     iteration = start_iter
@@ -174,45 +159,20 @@ def train(opt):
         # print(image_tensors.shape)
         # print(image_tensors[0])
 
-
-        # image_tensors = torch.cat(image_tensors, dim=0)
         image = image_tensors.to(device)
-        # text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
         batch_size = image.size(0)
 
-        # if 'CTC' in opt.Prediction:
-        #     preds = model(image, text)
-        #     preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-        #     if opt.baiduCTC:
-        #         preds = preds.permute(1, 0, 2)  # to use CTCLoss format
-        #         cost = criterion(preds, text, preds_size, length) / batch_size
-        #     else:
-        #         preds = preds.log_softmax(2).permute(1, 0, 2)
-        #         cost = criterion(preds, text, preds_size, length)
-
-        # else:
-        #     preds = model(image, text[:, :-1])  # align with Attention.forward
-        #     target = text[:, 1:]  # without [GO] Symbol
-        #     cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
-        # optimizer.zero_grad()
-        model.zero_grad(set_to_none=True)
+        optimizer.zero_grad(set_to_none=True)
 
 
         features = model(image)
-
-        # print(features.shape)
-
         logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
         cost = criterion(logits, labels)
 
-        # print(logits.shape)
-        # print(labels.shape)
-        
         cost.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
-
-        # print(cost)
+        scheduler.step()
 
         loss_avg.add(cost)
 
@@ -221,9 +181,6 @@ def train(opt):
         for i in range(len(train_accuracy)):
             accs_avg[i].add(train_accuracy[i])
 
-        # top1, top5 = accuracy(logits, labels, topk=(1, 5))
-        # print("Top 1 acc:", top1[0])
-        # print("Top 5 acc:", top5[0])
 
         # validation part
         if (iteration + 1) % opt.valInterval == 0 or iteration == 0: # To see training progress, we also conduct validation when 'iteration == 0' 
@@ -271,10 +228,6 @@ def train(opt):
                 current_model_log += f'\nTest:\n'
                 for i, acc in enumerate(accs):
                     current_model_log += f'Accuracy Top {i+1}: {acc:0.3f}, '
-
-                
-                
-                #f'{"Top 1 accuracy":17s}: {top1_acc:0.3f}, {"Top 2 accuracy":17s}: {top5_acc:0.3f}'
 
                 # keep best accuracy model (on valid dataset)
                 if accs[0] > best_accuracy:
@@ -348,13 +301,12 @@ if __name__ == '__main__':
     parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
-    parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
+    parser.add_argument('--weight_decay', default=10e-4, type=float, help='weight decay (default: 10e-4)')
     parser.add_argument('--final_layer', type=int, default=128, help='final layer hidden state')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--image_directories', type=str, default="images", help="directory for images")
     parser.add_argument('--num_of_features', type=int, default=13, help="Limiting calculations on info_nce_loss to this number of features")
     parser.add_argument('--FinalLayer', action='store_true', help='Use a final projection layer')
-    
     opt = parser.parse_args()
 
     if not opt.exp_name:

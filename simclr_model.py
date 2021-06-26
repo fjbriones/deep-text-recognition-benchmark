@@ -45,7 +45,7 @@ class FeaturesModel(nn.Module):
         super(FeaturesModel, self).__init__()
         self.opt = opt
         self.stages = {'Trans': opt.Transformation, 'Feat': opt.FeatureExtraction,
-                       'Seq': opt.SequenceModeling, 'Pred': opt.Prediction}
+                       'Seq': opt.SequenceModeling}
 
         """ Transformation """
         if opt.Transformation == 'TPS':
@@ -78,13 +78,6 @@ class FeaturesModel(nn.Module):
 
         self.final_layer = nn.Linear(self.SequenceModeling_output, opt.final_layer)
 
-        """ Prediction """
-        # if opt.Prediction == 'CTC':
-        #     self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
-        # elif opt.Prediction == 'Attn':
-        #     self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
-        # else:
-        #     raise Exception('Prediction is neither CTC or Attn')
 
     def forward(self, input, is_train=True):
         """ Transformation stage """
@@ -104,6 +97,8 @@ class FeaturesModel(nn.Module):
 
         if self.opt.FinalLayer and is_train:
             final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
+        elif not self.opt.FinalLayer and is_train:
+            final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
             final_feature = contextual_feature.contiguous()
         
