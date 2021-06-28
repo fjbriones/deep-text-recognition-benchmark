@@ -177,9 +177,11 @@ def train(opt):
             optimizer.zero_grad()
 
             loss = byol_learner(image)
-            
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)
+
+            if opt.grad_clip:
+                torch.nn.utils.clip_grad_norm_(byol_learner.parameters(), opt.grad_clip)
+
             optimizer.step()
             scheduler.step()
             byol_learner.update_moving_average()

@@ -168,7 +168,8 @@ def train(opt):
         cost = criterion(logits, labels)
 
         cost.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
+        if opt.grad_clip:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)  # gradient clipping with 5 (Default)
         optimizer.step()
         scheduler.step()
 

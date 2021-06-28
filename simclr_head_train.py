@@ -218,7 +218,10 @@ def train(opt):
 
         optimizer.zero_grad()
         cost.backward()
-        torch.nn.utils.clip_grad_norm_(filtered_parameters, opt.grad_clip)  # gradient clipping with 5 (Default)
+
+        if opt.grad_clip:
+            torch.nn.utils.clip_grad_norm_(filtered_parameters, opt.grad_clip)  # gradient clipping with 5 (Default)
+            
         optimizer.step()
         scheduler.step()
         loss_avg.add(cost)
