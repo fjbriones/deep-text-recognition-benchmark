@@ -168,6 +168,7 @@ def train(opt):
     # kl_loss_avg = Averager()
     # kl_loss = torch.nn.KLDivLoss()
 
+    epoch = 0
     while(True):
         # train part
         for i in tqdm(range(opt.valInterval)):
@@ -225,11 +226,15 @@ def train(opt):
         loss_avg.reset()
         valid_loss_avg.reset()
 
+        if epoch % 5 == 0:
+            torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
+
         if (iteration + 1) == opt.num_iter:
             print('end the training')
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
             sys.exit()
-        # iteration += 1
+        
+        epoch +=1
 
 
 if __name__ == '__main__':
