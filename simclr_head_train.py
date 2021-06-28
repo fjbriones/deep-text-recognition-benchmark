@@ -88,7 +88,10 @@ def train(opt):
             model.load_state_dict(torch.load(opt.saved_model))
     print("Model:")
     print(model)
-    model.eval()
+    if not opt.FT:
+        model.eval()
+    else:
+        model.train()
 
     # for param in model.parameters():
     #     param.requires_grad = False
@@ -221,7 +224,7 @@ def train(opt):
 
         if opt.grad_clip:
             torch.nn.utils.clip_grad_norm_(filtered_parameters, opt.grad_clip)  # gradient clipping with 5 (Default)
-            
+
         optimizer.step()
         scheduler.step()
         loss_avg.add(cost)
@@ -232,10 +235,17 @@ def train(opt):
             # for log
             with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a') as log:
                 simclr_head.eval()
+                if opt.FT:
+                    model.eval()
+
                 with torch.no_grad():
                     valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
                         model, simclr_head, criterion, valid_loader, converter, opt)
+                
                 simclr_head.train()
+                if opt.FT:
+                    model.train()
+
 
                 # training loss and validation loss
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
