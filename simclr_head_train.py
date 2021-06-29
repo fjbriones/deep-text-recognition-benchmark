@@ -194,7 +194,7 @@ def train(opt):
         feature = model(image, is_train=False)
         # feature = feature.view(-1, 26, feature.shape[1])
 
-        if 'CTC' in opt.Prediction:
+        if opt.Prediction == "CTC":
             preds = simclr_head(feature.detach(), text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
             if opt.baiduCTC:
@@ -203,7 +203,7 @@ def train(opt):
             else:
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
-        elif 'Attn' in opt.Prediction:
+        elif opt.Prediction == "Attn":
             preds = simclr_head(feature.detach(), text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
@@ -241,7 +241,7 @@ def train(opt):
                 with torch.no_grad():
                     valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
                         model, simclr_head, criterion, valid_loader, converter, opt)
-                
+
                 simclr_head.train()
                 if opt.FT:
                     model.train()
@@ -273,10 +273,10 @@ def train(opt):
                 head = f'{"Ground Truth":25s} | {"Prediction":25s} | Confidence Score & T/F'
                 predicted_result_log = f'{dashed_line}\n{head}\n{dashed_line}\n'
                 for gt, pred, confidence in zip(labels[:5], preds[:5], confidence_score[:5]):
-                    if 'Attn' in opt.Prediction:
+                    if opt.Prediction == "Attn":
                         gt = gt[:gt.find('[s]')]
                         pred = pred[:pred.find('[s]')]
-                    if 'Linear' in opt.Prediction:
+                    elif opt.Prediction == "Linear":
                         gt = gt[:gt.find(';')]
                         pred = pred[:pred.find(';')]
 
