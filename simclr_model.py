@@ -76,8 +76,6 @@ class FeaturesModel(nn.Module):
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
 
-        self.final_layer = nn.Linear(self.SequenceModeling_output, opt.final_layer)
-
 
     def forward(self, input, is_train=True):
         """ Transformation stage """
@@ -95,9 +93,7 @@ class FeaturesModel(nn.Module):
         else:
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
-        if self.opt.FinalLayer and is_train:
-            final_feature = self.final_layer(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
-        elif not self.opt.FinalLayer and is_train:
+        if is_train:
             final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
             final_feature = contextual_feature.contiguous()
