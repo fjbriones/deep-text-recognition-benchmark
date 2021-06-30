@@ -130,7 +130,7 @@ def train(opt):
         optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
     elif opt.optimizer == 'adadelta':
         optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps, weight_decay=opt.weight_decay)
-    elif opt.optimizer = 'sgd':
+    elif opt.optimizer == 'sgd':
         optimizer = optim.SGD(filtered_parameters, lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay, nesterov=opt.nesterov)
     else:
         raise Exception('Unknown optimizer')
