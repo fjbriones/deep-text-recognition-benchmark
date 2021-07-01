@@ -200,12 +200,13 @@ def train(opt):
         if not opt.FT:
             with torch.no_grad():
                 feature = model(image, is_train=False)
+                feature = feature.detach()
         else:
             feature = model(image, is_train=False)
         # feature = feature.view(-1, 26, feature.shape[1])
 
         if opt.Prediction == "CTC":
-            preds = simclr_head(feature.detach(), text)
+            preds = simclr_head(feature, text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
             if opt.baiduCTC:
                 preds = preds.permute(1, 0, 2)  # to use CTCLoss format
@@ -214,11 +215,11 @@ def train(opt):
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
         elif opt.Prediction == "Attn":
-            preds = simclr_head(feature.detach(), text[:, :-1])
+            preds = simclr_head(feature, text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
         else:
-            preds = simclr_head(feature.detach(), text)
+            preds = simclr_head(feature, text)
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), text.contiguous().view(-1))
 
 
