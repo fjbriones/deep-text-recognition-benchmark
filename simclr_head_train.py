@@ -134,9 +134,10 @@ def train(opt):
 
     filtered_parameters = []
     params_num = []
-    # for p in filter(lambda p: p.requires_grad, model.parameters()):
-    #     filtered_parameters.append(p)
-    #     params_num.append(np.prod(p.size()))
+    if opt.FT:
+        for p in filter(lambda p: p.requires_grad, model.parameters()):
+            filtered_parameters.append(p)
+            params_num.append(np.prod(p.size()))
     for p in filter(lambda p: p.requires_grad, simclr_head.parameters()):
         filtered_parameters.append(p)
         params_num.append(np.prod(p.size()))
