@@ -205,6 +205,8 @@ def train(opt):
             feature = model(image, is_train=False)
         # feature = feature.view(-1, 26, feature.shape[1])
 
+        print(feature[0])
+
         if opt.Prediction == "CTC":
             preds = simclr_head(feature, text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
