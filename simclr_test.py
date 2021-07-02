@@ -127,8 +127,11 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         text_for_loss, length_for_loss = converter.encode(labels, batch_max_length=opt.batch_max_length)
 
         start_time = time.time()
+
+        feature = model(image, is_train=False)
+        print(feature[0])
+
         if 'CTC' in opt.Prediction:
-            feature = model(image, is_train=False)
             preds = head(feature, text_for_pred)
             forward_time = time.time() - start_time
 
@@ -157,7 +160,6 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             # print("Labl ", labels[0])
         
         elif 'Attn' in opt.Prediction:
-            feature = model(image, is_train=False)
             preds = head(feature, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
@@ -176,7 +178,6 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
             # plt.show()
 
         else:
-            feature = model(image, is_train=False)
             preds = head(feature, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
