@@ -16,7 +16,7 @@ limitations under the License.
 
 import torch.nn as nn
 import torch
-
+import torch.nn.functional as F
 from modules.transformation import TPS_SpatialTransformerNetwork
 from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
@@ -96,6 +96,7 @@ class FeaturesModel(nn.Module):
         if is_train:
             final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
-            final_feature = contextual_feature.contiguous()
+            final_feature = F.normalize(contextual_feature.contiguous(), dim=-1, p=2)
+
         
         return final_feature

@@ -233,7 +233,7 @@ def train(opt):
         if epoch % 5 == 0:
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
 
-        if (iteration + 1) == opt.num_iter:
+        if (iteration + 1) >= opt.num_iter:
             print('end the training')
             torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/iter_{iteration+1}.pth')
             sys.exit()
