@@ -96,7 +96,7 @@ class FeaturesModel(nn.Module):
         if is_train:
             final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
-            final_feature = F.normalize(contextual_feature.contiguous(), dim=-1, p=2)
+            final_feature = contextual_feature.contiguous()
 
         
         return final_feature
