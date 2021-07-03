@@ -129,7 +129,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
         start_time = time.time()
 
         feature = model(image, is_train=False)
-        print(feature[0])
+        print(torch.std_mean(feature[0], dim=1))
 
         if 'CTC' in opt.Prediction:
             preds = head(feature, text_for_pred)
