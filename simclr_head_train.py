@@ -208,6 +208,9 @@ def train(opt):
         if opt.Prediction == "CTC":
             preds = simclr_head(feature, text)
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+
+            _, preds_index = preds.max(2)
+
             if opt.baiduCTC:
                 preds = preds.permute(1, 0, 2)  # to use CTCLoss format
                 cost = criterion(preds, text, preds_size, length) / batch_size
@@ -215,7 +218,6 @@ def train(opt):
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
 
-            _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index.data, preds_size.data)
             print("------------------------------------------------")
             print("Pred ", preds_str[0])
