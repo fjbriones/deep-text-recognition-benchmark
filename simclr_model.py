@@ -77,7 +77,7 @@ class FeaturesModel(nn.Module):
             self.SequenceModeling_output = self.FeatureExtraction_output
 
 
-    def forward(self, input, is_train=True):
+    def forward(self, input, is_train=True, pred_temp=1):
         """ Transformation stage """
         if not self.stages['Trans'] == "None":
             input = self.Transformation(input)
@@ -96,7 +96,7 @@ class FeaturesModel(nn.Module):
         if is_train:
             final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
-            final_feature = contextual_feature.contiguous()
+            final_feature = contextual_feature.contiguous()/pred_temp
 
         
         return final_feature

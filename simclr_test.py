@@ -128,7 +128,7 @@ def head_validation(model, head, criterion, evaluation_loader, converter, opt):
 
         start_time = time.time()
 
-        feature = model(image, is_train=False)
+        feature = model(image, is_train=False, pred_temp=opt.base_temp)
         print(torch.std_mean(feature[0], dim=1))
 
         if 'CTC' in opt.Prediction:
@@ -331,6 +331,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
+    
 
     opt = parser.parse_args()
 
