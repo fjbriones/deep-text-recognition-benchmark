@@ -214,20 +214,31 @@ def train(opt):
             else:
                 preds = preds.log_softmax(2).permute(1, 0, 2)
                 cost = criterion(preds, text, preds_size, length)
+
+            _, preds_index = preds.max(2)
+            preds_str = converter.decode(preds_index.data, preds_size.data)
+            print("------------------------------------------------")
+            print("Pred ", preds_str[0])
+            print("Labl ", labels[0])
         elif opt.Prediction == "Attn":
             preds = simclr_head(feature, text[:, :-1])
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
+            
+            _, preds_index = preds.max(2)
+            preds_str = converter.decode(preds_index, length_for_pred)
+            print("------------------------------------------------")
+            print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
+            print("Labl ", labels[0])
         else:
             preds = simclr_head(feature, text)
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), text.contiguous().view(-1))
 
-
-            # _, preds_index = preds.max(2)
-            # preds_str = converter.decode(preds_index, length_for_pred)
-            # print("------------------------------------------------")
-            # print("Pred ", preds_str[0][:preds_str[0].find('[s]')])
-            # print("Labl ", labels[0])
+            _, preds_index = preds.max(2)
+            preds_str = converter.decode(preds_index, length_for_pred)
+            print("------------------------------------------------")
+            print("Pred ", preds_str[0][:preds_str[0].find(';')])
+            print("Labl ", labels[0])
 
 
         optimizer.zero_grad()
