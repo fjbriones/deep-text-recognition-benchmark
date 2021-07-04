@@ -375,6 +375,8 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--base_temp', type=float, default=1, help='Temperature of base output')
+    parser.add_argument('--FinalLayer', action='store_true', help='Use a nonlinear projection head during training')
+    parser.add_argument('--final_feature', type=int, default=256, help='the size of the output of the final layer')
 
     opt = parser.parse_args()
 

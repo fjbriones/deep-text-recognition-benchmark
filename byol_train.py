@@ -290,7 +290,8 @@ if __name__ == '__main__':
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--weight_decay', type=float, default=10e-4, help='Weight decay')
-
+    parser.add_argument('--FinalLayer', action='store_true', help='Use a nonlinear projection head during training')
+    parser.add_argument('--final_feature', type=int, default=256, help='the size of the output of the final layer')
     opt = parser.parse_args()
 
     if not opt.exp_name:

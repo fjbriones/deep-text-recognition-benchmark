@@ -39,6 +39,19 @@ class Head(nn.Module):
             prediction = self.Prediction(x, text, is_train, batch_max_length=self.opt.batch_max_length)
         return prediction
 
+class MLP(nn.Module):
+    def __init__(self, dim, projection_size, hidden_size = 4096):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, hidden_size),
+            nn.BatchNorm1d(hidden_size),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_size, projection_size)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
 class FeaturesModel(nn.Module):
 
     def __init__(self, opt):
@@ -76,6 +89,9 @@ class FeaturesModel(nn.Module):
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
 
+        if self.opt.FinalLayer:
+            self.ProjectionHead = MLP(self.SequenceModeling_output, self.opt.final_feature)
+
 
     def forward(self, input, is_train=True, pred_temp=1):
         """ Transformation stage """
@@ -94,7 +110,10 @@ class FeaturesModel(nn.Module):
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
         if is_train:
-            final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+            if self.opt.FinalLayer:
+                final_feature = self.ProjectionHead(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
+            else:   
+                final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
         else:
             final_feature = contextual_feature.contiguous()/pred_temp
 
