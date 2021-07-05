@@ -164,7 +164,16 @@ def train(opt):
 
 
         features = model(image)
-        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
+        logits_list = []
+        labels_list = []
+        for j in range(features.shape[1]):
+            # print(features.shape)
+            batch_size = features.shape[0]
+            logits, labels = info_nce_loss(features[:,j], batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
+            logits_list.append(logits)
+            labels_list.append(labels)
+        logits = torch.cat(logits_list, dim=0)
+        labels = torch.cat(labels_list, dim=0)
         cost = criterion(logits, labels)
 
         cost.backward()

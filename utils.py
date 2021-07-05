@@ -230,14 +230,15 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of
 
     # num_of_features = 3
     # print(features.shape)
-    batch_features = features.view(batch_size,-1,features.shape[1])
-    limit_features_first = batch_features[:,:num_of_features*2-1,:]
-    limit_features_last = batch_features[:,-1:,:]
-    limit_features = torch.cat([limit_features_first, limit_features_last], dim=1)
-    # limit_features = F.normalize(limit_features, dim=1)
-    features = limit_features.view(-1, limit_features.shape[2])
+    # batch_features = features.view(batch_size,-1,features.shape[1])
+    # limit_features_first = batch_features[:,:num_of_features*2-1,:]
+    # limit_features_last = batch_features[:,-1:,:]
+    # limit_features = torch.cat([limit_features_first, limit_features_last], dim=1)
+    # # limit_features = F.normalize(limit_features, dim=1)
+    # features = limit_features.view(-1, limit_features.shape[2])
 
-    labels = torch.cat([torch.arange(batch_size*num_of_features) for i in range(n_views)], dim=0)
+    #labels = torch.cat([torch.arange(batch_size*num_of_features) for i in range(n_views)], dim=0)
+    labels = torch.cat([torch.arange(int(batch_size/2)) for i in range(n_views)], dim=0)
     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
     labels = labels.to(device)
 

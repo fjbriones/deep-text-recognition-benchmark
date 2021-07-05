@@ -95,15 +95,18 @@ def validation(model, criterion, evaluation_loader, device, iteration, opt, topk
         image = image_tensors.to(device)
         batch_size = image.size(0)
         features = model(image)
-        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
 
-        cost = criterion(logits, labels)
+        for j in range(features.shape[1]):
+            batch_size = features.shape[0]
+            logits, labels = info_nce_loss(features[:,j], batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
 
-        valid_loss_avg.add(cost)
+            cost = criterion(logits, labels)
 
-        acc = accuracy(logits, labels, topk=topk)
-        for i in range(len(acc)):
-            average_accuracies[i].add(acc[i]) 
+            valid_loss_avg.add(cost)
+
+            acc = accuracy(logits, labels, topk=topk)
+            for i in range(len(acc)):
+                average_accuracies[i].add(acc[i]) 
 
     return valid_loss_avg.val(), [a.val() for a in average_accuracies]
 

@@ -113,7 +113,7 @@ class FeaturesModel(nn.Module):
             if self.opt.FinalLayer:
                 final_feature = self.ProjectionHead(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
             else:   
-                final_feature = contextual_feature.contiguous().view(-1, contextual_feature.shape[2])
+                final_feature = contextual_feature.contiguous()#.view(-1, contextual_feature.shape[2])
         else:
             final_feature = contextual_feature.contiguous()/pred_temp
 
