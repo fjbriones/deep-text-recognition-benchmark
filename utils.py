@@ -226,7 +226,7 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
-def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of_features=13):
+def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of_features=13, randomized=False):
 
     # num_of_features = 3
     # print(features.shape)
@@ -267,19 +267,20 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of
     logits = torch.cat([positives, negatives], dim=1)
     labels = torch.zeros(logits.shape[0], dtype=torch.long).to(device)
 
-    random_labels = torch.randint(low=0, high=logits.shape[1], size=(logits.shape[0],1)).to(device)
-    index = torch.arange(logits.shape[0]).to(device).unsqueeze(1)
+    if randomized:
+        random_labels = torch.randint(low=0, high=logits.shape[1], size=(logits.shape[0],1)).to(device)
+        index = torch.arange(logits.shape[0]).to(device).unsqueeze(1)
 
-    labels_access = torch.cat([index, random_labels], 1)
-    labels_access = torch.transpose(labels_access, 0, 1)
+        labels_access = torch.cat([index, random_labels], 1)
+        labels_access = torch.transpose(labels_access, 0, 1)
 
-    temp = logits[tuple(labels_access)]
+        temp = logits[tuple(labels_access)]
 
-    logits[:,0] = temp
-    logits[tuple(labels_access)] = positives.squeeze()
+        logits[:,0] = temp
+        logits[tuple(labels_access)] = positives.squeeze()
 
-    labels = random_labels.squeeze().to(device)
+        labels = random_labels.squeeze().to(device)
 
-    logits = logits / temperature
+        logits = logits / temperature
     return logits, labels
 

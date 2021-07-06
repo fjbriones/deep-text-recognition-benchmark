@@ -164,16 +164,8 @@ def train(opt):
 
 
         features = model(image)
-        logits_list = []
-        labels_list = []
-        for j in range(features.shape[1]):
-            # print(features.shape)
-            batch_size = features.shape[0]
-            logits, labels = info_nce_loss(features[:,j], batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
-            logits_list.append(logits)
-            labels_list.append(labels)
-        logits = torch.cat(logits_list, dim=0)
-        labels = torch.cat(labels_list, dim=0)
+        batch_size = features.shape[0]
+        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
         cost = criterion(logits, labels)
 
         cost.backward()
@@ -304,6 +296,7 @@ if __name__ == '__main__':
     parser.add_argument('--FeatureExtraction', type=str, required=True,
                         help='FeatureExtraction stage. VGG|RCNN|ResNet')
     parser.add_argument('--SequenceModeling', type=str, required=True, help='SequenceModeling stage. None|BiLSTM')
+    parser.add_argument('--ProjectionHead', type=str, required=True, choices=['MLP', 'BiLSTM', 'None'], help='Projection head. None|MLP|BiLSTM')
     parser.add_argument('--num_fiducial', type=int, default=20, help='number of fiducial points of TPS-STN')
     parser.add_argument('--input_channel', type=int, default=1,
                         help='the number of input channel of Feature extractor')
@@ -319,7 +312,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     if not opt.exp_name:
-        opt.exp_name = f'{opt.Transformation}-{opt.FeatureExtraction}-{opt.SequenceModeling}-SimCLR'
+        opt.exp_name = f'{opt.Transformation}-{opt.FeatureExtraction}-{opt.SequenceModeling}-{opt.ProjectionHead}-SimCLR'
         opt.exp_name += f'-Seed{opt.manualSeed}'
         # print(opt.exp_name)
 

@@ -85,10 +85,7 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
 def validation(model, criterion, evaluation_loader, device, iteration, opt, topk=(1,2,3,4,5)):
     """ validation or evaluation """
     average_accuracies = [Averager() for k in topk]
-    total_iters = 0
-    infer_time = 0
     valid_loss_avg = Averager()
-    data_transform = get_simclr_pipeline_transform((32,100))
 
     for i, (image_tensors, _) in enumerate(evaluation_loader):
 
@@ -96,17 +93,16 @@ def validation(model, criterion, evaluation_loader, device, iteration, opt, topk
         batch_size = image.size(0)
         features = model(image)
 
-        for j in range(features.shape[1]):
-            batch_size = features.shape[0]
-            logits, labels = info_nce_loss(features[:,j], batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
+        batch_size = features.shape[0]
+        logits, labels = info_nce_loss(features, batch_size, device, temperature=opt.logits_temperature, num_of_features=opt.num_of_features)
 
-            cost = criterion(logits, labels)
+        cost = criterion(logits, labels)
 
-            valid_loss_avg.add(cost)
+        valid_loss_avg.add(cost)
 
-            acc = accuracy(logits, labels, topk=topk)
-            for i in range(len(acc)):
-                average_accuracies[i].add(acc[i]) 
+        acc = accuracy(logits, labels, topk=topk)
+        for i in range(len(acc)):
+            average_accuracies[i].add(acc[i]) 
 
     return valid_loss_avg.val(), [a.val() for a in average_accuracies]
 

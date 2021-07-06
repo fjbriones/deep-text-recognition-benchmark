@@ -89,8 +89,10 @@ class FeaturesModel(nn.Module):
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
 
-        if self.opt.FinalLayer:
+        if opt.ProjectionHead == 'MLP':
             self.ProjectionHead = MLP(self.SequenceModeling_output, self.opt.final_feature)
+        elif opt.ProjectionHead == 'BiLSTM':
+            self.ProjectionHead = BidirectionalLSTM(self.SequenceModeling_output, self.opt.projection_hidden, self.opt.projection_output)
 
 
     def forward(self, input, is_train=True, pred_temp=1):
@@ -110,10 +112,11 @@ class FeaturesModel(nn.Module):
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
         if is_train:
-            if self.opt.FinalLayer:
-                final_feature = self.ProjectionHead(contextual_feature.contiguous().view(-1, contextual_feature.shape[2]))
+            if self.opt.ProjectionHead != 'None':
+                projection_feature = self.ProjectionHead(contextual_feature)
+                final_feature = projection_feature.view(-1, projection_feature.shape[2])
             else:   
-                final_feature = contextual_feature.contiguous()#.view(-1, contextual_feature.shape[2])
+                final_feature = contextual_feature.view(-1, contextual_feature.shape[2])
         else:
             final_feature = contextual_feature.contiguous()/pred_temp
 
