@@ -281,6 +281,6 @@ def info_nce_loss(features, batch_size, device, n_views=2, temperature=1, num_of
 
         labels = random_labels.squeeze().to(device)
 
-        logits = logits / temperature
+    logits = logits / temperature
     return logits, labels
 
