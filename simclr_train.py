@@ -306,12 +306,11 @@ if __name__ == '__main__':
     parser.add_argument('--projection_hidden', type=int, default=256, help='the size of the BiLSTM projection hidden state')
     parser.add_argument('--projection_output', type=int, default=256, help='the size of the BiLSTM projection output')
     parser.add_argument('--final_feature', type=int, default=256, help='the size of the output of the final layer')
-    
+
     parser.add_argument('--weight_decay', default=10e-4, type=float, help='weight decay (default: 10e-4)')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--image_directories', type=str, default="images", help="directory for images")
     parser.add_argument('--num_of_features', type=int, default=13, help="Limiting calculations on info_nce_loss to this number of features")
-    parser.add_argument('--final_feature', type=int, default=256, help='the size of the output of the final layer')
     opt = parser.parse_args()
 
     if not opt.exp_name:
