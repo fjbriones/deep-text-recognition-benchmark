@@ -373,6 +373,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
+    parser.add_argument('--projection_hidden', type=int, default=256, help='the size of the BiLSTM projection hidden state')
+    parser.add_argument('--projection_output', type=int, default=256, help='the size of the BiLSTM projection output')
     parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     parser.add_argument('--logits_temperature', type=float, default=1, help='Scaling of the logits')
     parser.add_argument('--base_temp', type=float, default=1, help='Temperature of base output')
